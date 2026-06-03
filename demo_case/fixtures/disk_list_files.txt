@@ -1,0 +1,13 @@
+r/r 5:	$MFT
+r/r 6:	$MFTMirr
+r/r 7:	$LogFile
+r/r 8:	$Volume
+r/r 60613:	Windows/System32/lsass.exe
+r/r 60614:	Windows/System32/svchost.exe
+r/r 60615:	Windows/System32/services.exe
+r/r 60616:	Windows/System32/explorer.exe
+r/r 71001:	Users/Public/cridex.exe
+r/r 71002:	Users/ismai/AppData/Local/Temp/reader_sl.exe
+d/d 70999:	Users/Public
+r/r 72000:	Windows/System32/cmd.exe
+r/r 72001:	Windows/System32/powershell.exe

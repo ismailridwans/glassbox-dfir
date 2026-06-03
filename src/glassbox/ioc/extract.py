@@ -29,7 +29,13 @@ _RE = {
     "regpath": re.compile(
         r"\b(?:HK(?:LM|CU|CR|U|CC)|HKEY_[A-Z_]+)\\[\\A-Za-z0-9 _\-.${}]+", re.IGNORECASE
     ),
-    "filepath": re.compile(r"\b[A-Za-z]:\\(?:[^\\/:*?\"<>|\r\n]+\\)*[^\\/:*?\"<>|\r\n]*"),
+    # Matches Windows file paths (must have at least one filename after the last separator).
+    # Stops at whitespace, comma, semicolon, quote, angle-brackets.
+    # Also matches JSON-escaped double-backslash paths.
+    "filepath": re.compile(
+        r"[A-Za-z]:\\\\[A-Za-z0-9 ._\-]+(?:\\\\[A-Za-z0-9 ._\-]+)+|"
+        r"[A-Za-z]:\\[A-Za-z0-9 ._\-]+(?:\\[A-Za-z0-9 ._\-]+)+"
+    ),
 }
 
 # Don't treat these as domains (file artifacts that look domain-ish).
@@ -37,6 +43,14 @@ _FILE_EXTS = {
     "exe", "dll", "sys", "bat", "cmd", "ps1", "vbs", "js", "jar", "tmp", "dat",
     "log", "txt", "doc", "docx", "xls", "xlsx", "zip", "rar", "7z", "evtx", "lnk",
 }
+
+# Known tool-output field names that look like domains but aren't.
+# Pattern: short dotted names used by tshark/volatility/zeek as column headers.
+_FIELD_PATTERNS = re.compile(
+    r"^(?:ip|tcp|udp|dns|http|_ws|frame|eth|ssl|tls|smb|ftp|ssh|"
+    r"kerberos|ntlm|ldap|col|ws|zeek|suricata|snort)"
+    r"(?:\.[a-z_][a-z0-9_\.]*)+$"
+)
 
 
 def defang(value: str, kind: str) -> str:
@@ -108,15 +122,34 @@ def extract_iocs(
         add("regpath", value)
     if include_filepaths:
         for value in _RE["filepath"].findall(text):
-            add("filepath", value)
+            # Normalise JSON-escaped paths (replace \\ with \)
+            normalised = value.replace("\\\\", "\\")
+            # Require at least 2 path separators (e.g. C:\dir\file — not just C:\dir)
+            parts = [p for p in normalised.rstrip("\\").split("\\") if p]
+            if len(parts) < 3:  # drive + 2 components minimum
+                continue
+            add("filepath", normalised)
 
     emails = {v.lower() for v in _RE["email"].findall(text)}
+    urls_found = {v.lower() for v in _RE["url"].findall(text)}
     for value in _RE["domain"].findall(text):
-        tld = value.rsplit(".", 1)[-1].lower()
+        val_l = value.lower()
+        tld = val_l.rsplit(".", 1)[-1]
         if tld in _FILE_EXTS:
             continue  # e.g. reader_sl.exe
-        if any(value.lower() in e for e in emails):
-            continue  # part of an email we already captured
-        add("domain", value.lower())
+        if any(val_l in e for e in emails):
+            continue  # part of an email
+        if any(val_l in u for u in urls_found):
+            continue  # subdomain of an already-captured URL
+        if _FIELD_PATTERNS.match(val_l):
+            continue  # tshark/zeek/volatility field name — not a real domain
+        # Require at least 4-char TLD or 2 proper labels (filter single-word "domains")
+        labels = val_l.split(".")
+        if len(labels) < 2 or len(labels[-1]) < 2:
+            continue
+        # Skip all-numeric labels that look like version numbers (1.2.3)
+        if all(lbl.replace("-", "").isdigit() for lbl in labels):
+            continue
+        add("domain", val_l)
 
     return list(found.values())

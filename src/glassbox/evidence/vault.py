@@ -79,8 +79,30 @@ class EvidenceVault:
     # ------------------------------------------------------------------ #
     # Inventory
     # ------------------------------------------------------------------ #
+    # Files to skip — placeholders, readmes, stubs that are not real evidence.
+    _SKIP = {".gitkeep", ".gitignore", "readme.md", "readme.txt"}
+    _SKIP_SUFFIX = {".md", ".txt", ".py", ".yaml", ".yml", ".json", ".xml"}
+
     def list_evidence(self) -> list[Path]:
-        return sorted(p for p in self.root.rglob("*") if p.is_file())
+        out: list[Path] = []
+        for p in self.root.rglob("*"):
+            if not p.is_file():
+                continue
+            if p.name.lower() in self._SKIP:
+                continue
+            # Skip stub/placeholder files (contain the GLASSBOX_REPLAY_STUB marker)
+            if p.suffix.lower() in self._SKIP_SUFFIX:
+                try:
+                    head = p.read_bytes(512)
+                    if b"GLASSBOX_REPLAY_STUB" in head:
+                        continue
+                except OSError:
+                    pass
+                # Only keep text-extension files that are recognized evidence types
+                if self.classify(p) == EvidenceType.UNKNOWN:
+                    continue
+            out.append(p)
+        return sorted(out)
 
     @staticmethod
     def classify(path: str | Path) -> EvidenceType:

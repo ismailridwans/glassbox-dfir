@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Callable
 
+from pathlib import Path
+
 from glassbox.attack import coverage_by_tactic, dedupe_mappings, for_artifact
 from glassbox.context import CaseContext
 from glassbox.correlate import DiskView, MemoryView, correlate_disk_memory
@@ -29,11 +31,24 @@ from glassbox.orchestrator.specialists import SPECIALISTS, run_memory
 from glassbox.verify import verify_discrepancies, verify_findings
 
 # evidence type -> (specialist agent, base tools for iteration 1)
+def _dedup_iocs(iocs) -> list:
+    """Deduplicate IOCs by (type, value) preserving first occurrence."""
+    seen: set = set()
+    out = []
+    for ioc in iocs:
+        k = (ioc.type if hasattr(ioc, "type") else ioc.get("type", ""),
+             str(ioc.value if hasattr(ioc, "value") else ioc.get("value", "")).lower())
+        if k not in seen:
+            seen.add(k)
+            out.append(ioc)
+    return out
+
+
 EVIDENCE_PLAN = {
     EvidenceType.MEMORY: ("memory_analyst", ["mem_pslist", "mem_netscan", "mem_cmdline"]),
-    EvidenceType.EVTX: ("evtx_analyst", ["evtx_hunt"]),
-    EvidenceType.DISK: ("disk_analyst", ["disk_partition_table", "disk_list_files"]),
-    EvidenceType.PCAP: ("network_analyst", ["pcap_conn_summary", "pcap_dns", "pcap_http"]),
+    EvidenceType.EVTX:   ("evtx_analyst",   ["evtx_hunt", "evtx_to_json"]),
+    EvidenceType.DISK:   ("disk_analyst",   ["disk_partition_table", "disk_list_files", "disk_mft_timeline"]),
+    EvidenceType.PCAP:   ("network_analyst", ["pcap_conn_summary", "pcap_dns", "pcap_http"]),
 }
 # discrepancy kind -> artifact key for ATT&CK enrichment
 _DISC_ARTIFACT = {
@@ -102,10 +117,12 @@ def plan(state, *, ctx: CaseContext, llm: BaseLLM, seq: Callable[[], int]) -> di
     for d in dropped:
         ctx.audit.append("planner_step_rejected", tool=d["tool"], reason="not a registered read-only tool")
 
+    step_labels = ", ".join(
+        f"{s['tool']}({Path(s['evidence']).name})" for s in steps
+    )
     rationale, usage = llm.narrate(
         "You are a senior DFIR triage planner. Sequence read-only tools like an analyst.",
-        f"Iteration {iteration}. Planning {len(steps)} step(s): "
-        + ", ".join(f"{s['tool']}({s['evidence']})" for s in steps),
+        f"Iteration {iteration}. Planning {len(steps)} step(s): {step_labels}",
     )
     ctx.audit.append("plan", iteration=iteration, steps=steps, rationale=rationale,
                      tokens=usage.total)
@@ -123,6 +140,7 @@ def collect(state, *, ctx: CaseContext, llm: BaseLLM, seq: Callable[[], int]) ->
         groups.setdefault((s["agent"], s["evidence"]), []).append(s["tool"])
 
     findings = list(state.get("findings", []))
+    specialist_iocs: list = []
     mem_view = dict(state.get("mem_view", {}))
     disk_view = dict(state.get("disk_view", {}))
     executed: list[str] = []
@@ -130,14 +148,16 @@ def collect(state, *, ctx: CaseContext, llm: BaseLLM, seq: Callable[[], int]) ->
     msgs: list[A2AMessage] = []
 
     for (agent, evidence), tools in groups.items():
+        ev_label = Path(evidence).name if evidence else evidence  # basename only — no path leakage
         req = A2AMessage(seq=seq(), from_agent="orchestrator", to_agent=agent, role="request",
-                         summary=f"Analyze {evidence} with {tools}", refs=tools)
+                         summary=f"Analyze {ev_label} with {tools}", refs=tools)
         msgs.append(req)
         if agent == "memory_analyst":
             out = run_memory(ctx.toolkit, evidence, tools, demo_overclaim=bool(state.get("demo_overclaim")))
         else:
             out = SPECIALISTS[agent](ctx.toolkit, evidence, tools)
         findings = _merge_findings(findings, out["findings"])
+        specialist_iocs.extend(out.get("iocs", []))
         if agent in ("memory_analyst",):
             mem_view.update(out["view"])
         if agent in ("disk_analyst",):
@@ -153,8 +173,8 @@ def collect(state, *, ctx: CaseContext, llm: BaseLLM, seq: Callable[[], int]) ->
                          n_findings=len(out["findings"]), executed=out["executed"],
                          degraded=out["degraded"], rationale=out["rationale"])
 
-    return {"findings": findings, "mem_view": mem_view, "disk_view": disk_view,
-            "executed": executed, "degraded": degraded, "a2a": msgs}
+    return {"findings": findings, "iocs": specialist_iocs, "mem_view": mem_view,
+            "disk_view": disk_view, "executed": executed, "degraded": degraded, "a2a": msgs}
 
 
 def correlate(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
@@ -173,9 +193,13 @@ def correlate(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
     mirrors: list[Finding] = []
     for d in discrepancies:
         artifact = _DISC_ARTIFACT.get(d.kind)
+        # Build a clean title from kind + first affected identifier in provenance
+        locator = d.provenance[0].raw_locator if d.provenance else ""
+        kind_label = d.kind.replace("_", " ").title()
+        title = f"[{kind_label}] {locator}" if locator else kind_label
         mirrors.append(Finding(
             finding_id=f"F-{d.discrepancy_id}",
-            title=d.description.split(".")[0],
+            title=title,
             description=d.description,
             evidence_type=EvidenceType.MEMORY,
             severity=d.severity,
@@ -199,22 +223,15 @@ def correlate(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
 def map_attack(state, *, ctx: CaseContext) -> dict:
     findings = state.get("findings", [])
     mappings = []
-    iocs = []
+    finding_iocs = []
     for f in findings:
         mappings += f.attack
-        iocs += f.iocs
+        finding_iocs += f.iocs
     mappings = dedupe_mappings(mappings)
-    # de-dupe IOCs by (type,value)
-    seen = set()
-    uniq_iocs = []
-    for i in iocs:
-        k = (i.type, i.value.lower())
-        if k not in seen:
-            seen.add(k)
-            uniq_iocs.append(i)
+    # finding_iocs are added to the accumulator (state["iocs"] already has specialist iocs)
     ctx.audit.append("attack_mapping", techniques=[m.technique_id for m in mappings],
-                     n_iocs=len(uniq_iocs))
-    return {"attack": mappings, "iocs": uniq_iocs}
+                     finding_ioc_count=len(finding_iocs))
+    return {"attack": mappings, "iocs": finding_iocs}  # accumulator adds to existing specialist iocs
 
 
 def verify(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
@@ -316,12 +333,16 @@ def route_after_critique(state) -> str:
 
 
 def report(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
+    from glassbox.timeline import build_timeline, narrative_summary  # lazy — avoids import cycle
     integrity = ctx.integrity.verify()
     chain_valid, chain_errs = ctx.audit.verify_self()
     findings = state.get("findings", [])
+    discrepancies = state.get("discrepancies", [])
     attack = state.get("attack", [])
     a2a = state.get("a2a", [])
     total = TokenUsage()
+    timeline = build_timeline(findings, discrepancies)
+    narrative = narrative_summary(timeline, case_id=state.get("case_id", ctx.config.case_id))
     for m in a2a:
         total = total + (m.token_usage if isinstance(m.token_usage, TokenUsage) else TokenUsage(**m.token_usage))
 
@@ -334,8 +355,8 @@ def report(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
         evidence_types=sorted({EvidenceType(e["type"]) for e in state.get("evidence", [])
                                if e["type"] in EvidenceType._value2member_map_}, key=lambda x: x.value),
         findings=findings,
-        discrepancies=state.get("discrepancies", []),
-        iocs=state.get("iocs", []),
+        discrepancies=discrepancies,
+        iocs=_dedup_iocs(state.get("iocs", [])),
         attack_coverage=attack,
         quarantined=state.get("quarantined", []),
         integrity=integrity,
@@ -343,8 +364,10 @@ def report(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
         max_iterations=int(state.get("max_iterations", 3)),
         degraded_tools=sorted(set(state.get("degraded", []))),
         total_tokens=total,
-        audit_log_ref=str(ctx.config.audit_path),
+        audit_log_ref=ctx.config.audit_path.name,
         audit_chain_valid=chain_valid,
+        timeline=[e.as_dict() for e in timeline],
+        narrative=narrative,
     )
     ctx.audit.append("report", n_findings=len(findings),
                      n_quarantined=len(state.get("quarantined", [])),

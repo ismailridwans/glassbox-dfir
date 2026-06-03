@@ -1,0 +1,4 @@
+frame.time_epoch	ip.src	dns.qry.name
+1342921408.001	172.16.112.128	evil-c2.cridex.net
+1342921408.550	172.16.112.128	malware-update.dyndns.org
+1342921409.100	172.16.112.128	41.168.5.140.in-addr.arpa

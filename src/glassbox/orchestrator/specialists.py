@@ -52,6 +52,22 @@ def _prov(exec_id: str, tool: str, locator, note: str = "") -> Provenance:
     return Provenance(tool_exec_id=exec_id, tool=tool, raw_locator=str(locator), note=note)
 
 
+def _harvest_iocs(toolkit, exec_id: str, context: str = "") -> list[IOC]:
+    """Extract and return grounded IOCs from a tool execution's captured output."""
+    raw = toolkit.runner.rawstore.get_raw(exec_id)
+    if not raw:
+        return []
+    from glassbox.ioc.extract import extract_iocs
+    prov = [Provenance(tool_exec_id=exec_id, tool="ioc_extract", raw_locator="", note=context)]
+    iocs = extract_iocs(raw, context=context,
+                        provenance=prov, include_filepaths=True)
+    # set each IOC's locator to its own value for the verifier
+    for ioc in iocs:
+        for p in ioc.provenance:
+            p.raw_locator = ioc.value
+    return iocs
+
+
 def _attack_for(*artifact_keys: str) -> list[AttackMapping]:
     out: list[AttackMapping] = []
     for k in artifact_keys:
@@ -227,6 +243,11 @@ def run_evtx(toolkit, evidence: str, tools: list[str]) -> SpecialistOutput:
                     prov=[_prov(res.tool_exec_id, "evtx_hunt", locator)], agent=agent,
                     observed_at=str(d.get("timestamp") or "")))
             reasons.append(f"evtx_hunt: {s.get('count', 0)} detection(s)")
+            # Harvest IOCs grounded in the hunt output (paths, IPs, hashes in details)
+            for ioc in _harvest_iocs(toolkit, res.tool_exec_id, "evtx_hunt detections"):
+                if ioc.type in ("filepath", "regpath", "sha256", "md5", "ipv4"):
+                    ioc.provenance[0].raw_locator = ioc.value
+                    out.setdefault("iocs", []).append(ioc)
         elif tool in ("evtx_to_json", "evtx_dump_xml"):
             hist = s.get("event_id_histogram", {})
             if "1102" in hist:
@@ -236,6 +257,10 @@ def run_evtx(toolkit, evidence: str, tools: list[str]) -> SpecialistOutput:
                     evtype=EvidenceType.EVTX, severity=Severity.HIGH, confidence=Confidence.CONFIRMED,
                     attack=_attack_for("clear_event_log"), cited=["1102"],
                     prov=[_prov(res.tool_exec_id, tool, "1102")], agent=agent))
+            # Harvest path IOCs from EVTX events (service paths, file names)
+            for ioc in _harvest_iocs(toolkit, res.tool_exec_id, f"{tool} events"):
+                if ioc.type in ("filepath", "sha256", "ipv4"):
+                    out.setdefault("iocs", []).append(ioc)
             reasons.append(f"{tool}: {s.get('count', 0)} events")
     out["rationale"] = "; ".join(reasons) or ("no evtx detections" if ran_hunt else "evtx not analyzed")
     return out
@@ -269,16 +294,33 @@ def run_disk(toolkit, evidence: str, tools: list[str]) -> SpecialistOutput:
         elif tool == "disk_list_files":
             out["view"]["image_names"] = s.get("image_names", [])
             out["view"]["listing_exec_id"] = res.tool_exec_id
+            _SUSP_DIRS = ("\\users\\public\\", "\\programdata\\", "\\appdata\\local\\temp\\",
+                          "/users/public/", "/programdata/", "/appdata/local/temp/")
             for f in s.get("files", []):
                 name = str(f.get("name", "")).lower()
-                path = str(f.get("path", "")).lower()
-                if name in _SYS_BINS and "system32" not in path and "syswow64" not in path and "winsxs" not in path:
+                path = str(f.get("path", ""))
+                path_l = path.lower()
+                # Masquerade: system binary outside System32
+                if name in _SYS_BINS and "system32" not in path_l and "syswow64" not in path_l and "winsxs" not in path_l:
                     out["findings"].append(_finding(
                         title=f"Masquerade: system binary '{name}' outside System32",
-                        desc=f"'{name}' found at non-standard path '{f.get('path')}'.",
+                        desc=f"'{name}' found at non-standard path '{path}'.",
                         evtype=EvidenceType.DISK, severity=Severity.HIGH, confidence=Confidence.CONFIRMED,
-                        attack=_attack_for("masquerade_path"), cited=[f.get("path")],
-                        prov=[_prov(res.tool_exec_id, "disk_list_files", f.get("path"))], agent=agent))
+                        attack=_attack_for("masquerade_path"), cited=[path],
+                        prov=[_prov(res.tool_exec_id, "disk_list_files", path)], agent=agent))
+                # Executables dropped in writable user directories (not system bins, just .exe/.dll)
+                elif name.endswith((".exe", ".dll")) and name not in _SYS_BINS:
+                    if any(d in path_l for d in _SUSP_DIRS):
+                        out["findings"].append(_finding(
+                            title=f"Executable in suspicious path: {name}",
+                            desc=f"Non-standard executable '{path}' found in writable user directory.",
+                            evtype=EvidenceType.DISK, severity=Severity.HIGH, confidence=Confidence.CONFIRMED,
+                            attack=_attack_for("masquerade_path"), cited=[path],
+                            prov=[_prov(res.tool_exec_id, "disk_list_files", path)], agent=agent))
+            # Harvest filepath IOCs from disk listing (suspicious paths)
+            for ioc in _harvest_iocs(toolkit, res.tool_exec_id, "disk file listing"):
+                if ioc.type == "filepath" and any(d in ioc.value.lower() for d in _SUSP_DIRS):
+                    out.setdefault("iocs", []).append(ioc)
             reasons.append(f"fls: {s.get('count', 0)} files ({len(out['view'].get('image_names', []))} images)")
         elif tool == "disk_mft_timeline":
             reasons.append(f"timeline: {s.get('count', 0)} entries")

@@ -1,0 +1,20 @@
+[
+  {
+    "EventId": 7045,
+    "TimeCreated": "2012-07-22T02:43:01Z",
+    "Computer": "VICTIM-PC",
+    "Channel": "System",
+    "MapDescription": "New service installed",
+    "PayloadData1": "ServiceName: Cridex, ImagePath: C:\\Users\\Public\\cridex.exe, StartType: AutoStart",
+    "UserName": "SYSTEM"
+  },
+  {
+    "EventId": 1102,
+    "TimeCreated": "2012-07-22T02:44:12Z",
+    "Computer": "VICTIM-PC",
+    "Channel": "Security",
+    "MapDescription": "Security audit log was cleared",
+    "PayloadData1": "SubjectUserName: SYSTEM",
+    "UserName": "SYSTEM"
+  }
+]

@@ -70,6 +70,26 @@ def render_markdown(rep: TriageReport, a2a: list[Any] | None = None) -> str:
               f"`{(r.sha256_after or 'N/A')[:16]}…` | {'✅' if r.unchanged else '❌'} |")
         a("")
 
+    # --- incident narrative (timeline-driven)
+    if rep.narrative:
+        a(rep.narrative)
+        a("")
+
+    # --- timeline table
+    if rep.timeline:
+        a(f"## Unified Incident Timeline ({len(rep.timeline)} events)")
+        a("")
+        a("| Timestamp | Source | Category | Title | Sev | Conf | Tool Exec |")
+        a("|-----------|--------|----------|-------|-----|------|-----------|")
+        for ev in rep.timeline[:30]:
+            ts = ev.get("ts", "unknown")[:19]
+            a(f"| `{ts}` | {ev.get('source','')} | {ev.get('category','')} "
+              f"| {_md_escape(ev.get('title','')[:55])} | {ev.get('severity','')} "
+              f"| {ev.get('confidence','')[:3]} | `{ev.get('tool_exec_id','')}` |")
+        if len(rep.timeline) > 30:
+            a(f"\n*({len(rep.timeline) - 30} additional events in JSON report)*")
+        a("")
+
     # --- findings
     confirmed = rep.confirmed()
     inferred  = rep.inferred()

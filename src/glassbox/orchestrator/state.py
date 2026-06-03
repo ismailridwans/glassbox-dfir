@@ -23,7 +23,7 @@ class GraphState(TypedDict, total=False):
 
     findings: list[Any]                     # list[Finding]
     discrepancies: list[Any]                # list[Discrepancy]
-    iocs: list[Any]                         # list[IOC]
+    iocs: Annotated[list[Any], operator.add]  # list[IOC] — accumulates across specialists + iterations
     attack: list[Any]                       # list[AttackMapping]
     quarantined: Annotated[list[Any], operator.add]  # list[Finding] (HALLUCINATED) — accumulates across iters
 

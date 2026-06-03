@@ -4,6 +4,13 @@ cases/**/evidence/
 cases/**/raw/
 cases/**/scratch/
 cases/**/reports/
+
+# Generated demo / benchmark output (artefacts, not source)
+demo_output/
+demo_output_sample/
+benchmark_report.json
+
+# Large binary evidence extensions — never commit real images
 *.E01
 *.e01
 *.vmem

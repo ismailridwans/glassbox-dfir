@@ -118,7 +118,7 @@ def cmd_demo(args):
     print(f"  Case dir : {demo_root}")
     import tempfile, shutil
     with tempfile.TemporaryDirectory(prefix="glassbox_demo_") as tmp:
-        case_dir  = Path(tmp) / "case"
+        case_dir  = Path(tmp) / "demo-cridex-evtx"
         shutil.copytree(demo_root, case_dir)
         ctx = _build_ctx(
             str(case_dir),

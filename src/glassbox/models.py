@@ -241,6 +241,8 @@ class TriageReport(BaseModel):
     total_tokens: TokenUsage = Field(default_factory=TokenUsage)
     audit_log_ref: Optional[str] = None
     audit_chain_valid: Optional[bool] = None
+    timeline: list[dict] = Field(default_factory=list, description="Sorted cross-source event timeline")
+    narrative: str = Field(default="", description="Auto-generated incident narrative")
 
     # --- convenience rollups for the accuracy report -------------------------
     def confirmed(self) -> list[Finding]:
