@@ -38,6 +38,8 @@ _EXT_TYPE = {
     ".vmss": EvidenceType.MEMORY, ".vmsn": EvidenceType.MEMORY, ".dump": EvidenceType.MEMORY,
     ".evtx": EvidenceType.EVTX,
     ".pcap": EvidenceType.PCAP, ".pcapng": EvidenceType.PCAP, ".cap": EvidenceType.PCAP,
+    # Registry hives (by name pattern — also handled in classify())
+    ".dat": EvidenceType.REGISTRY, ".hiv": EvidenceType.REGISTRY, ".reg": EvidenceType.REGISTRY,
 }
 
 
@@ -90,17 +92,19 @@ class EvidenceVault:
                 continue
             if p.name.lower() in self._SKIP:
                 continue
-            # Skip stub/placeholder files (contain the GLASSBOX_REPLAY_STUB marker)
+            # For known-text extensions: skip stubs and unrecognised types
             if p.suffix.lower() in self._SKIP_SUFFIX:
                 try:
-                    head = p.read_bytes(512)
+                    head = p.read_bytes()[:512]
                     if b"GLASSBOX_REPLAY_STUB" in head:
                         continue
                 except OSError:
                     pass
-                # Only keep text-extension files that are recognized evidence types
                 if self.classify(p) == EvidenceType.UNKNOWN:
                     continue
+            # Registry hives (.dat/.hiv/.reg) — let stub files through.
+            # In replay mode, the stub IS the evidence placeholder; the fixture file provides the data.
+            # In live mode, real hives don't contain GLASSBOX_REPLAY_STUB so they always pass.
             out.append(p)
         return sorted(out)
 
@@ -110,6 +114,13 @@ class EvidenceVault:
         ext = p.suffix.lower()
         t = _EXT_TYPE.get(ext)
         if t:
+            # Narrow .dat — only registry hive names are REGISTRY, others stay UNKNOWN
+            if t == EvidenceType.REGISTRY and ext == ".dat":
+                name = p.name.upper()
+                _REGISTRY_HIVES = {"NTUSER.DAT", "USRCLASS.DAT", "SAM", "SECURITY", "SOFTWARE",
+                                   "SYSTEM", "COMPONENTS", "BCD", "DEFAULT"}
+                if name not in _REGISTRY_HIVES:
+                    return EvidenceType.UNKNOWN
             return t
         if ext in (".raw", ".dmp", ".bin"):
             name = p.name.lower()

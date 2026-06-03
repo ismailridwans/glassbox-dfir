@@ -69,6 +69,28 @@ TECHNIQUES: dict[str, tuple[str, list[str]]] = {
     "T1210": ("Exploitation of Remote Services", ["TA0008"]),
     "T1098": ("Account Manipulation", ["TA0003", "TA0004"]),
     "T1048": ("Exfiltration Over Alternative Protocol", ["TA0010"]),
+    # --- LOLBAS / System Binary Proxy Execution ---
+    "T1218.010": ("System Binary Proxy Execution: Regsvr32", ["TA0005"]),
+    "T1218.005": ("System Binary Proxy Execution: Mshta", ["TA0005"]),
+    "T1218.007": ("System Binary Proxy Execution: Msiexec", ["TA0005"]),
+    "T1218.011": ("System Binary Proxy Execution: Rundll32", ["TA0005"]),
+    "T1059.003": ("Command and Scripting Interpreter: Windows Command Shell", ["TA0002"]),
+    "T1059.005": ("Command and Scripting Interpreter: Visual Basic", ["TA0002"]),
+    "T1197": ("BITS Jobs", ["TA0003", "TA0005"]),
+    "T1105": ("Ingress Tool Transfer", ["TA0011"]),
+    "T1021.006": ("Remote Services: Windows Remote Management", ["TA0008"]),
+    # --- Discovery ---
+    "T1057": ("Process Discovery", ["TA0007"]),
+    "T1082": ("System Information Discovery", ["TA0007"]),
+    "T1083": ("File and Directory Discovery", ["TA0007"]),
+    "T1049": ("System Network Connections Discovery", ["TA0007"]),
+    "T1012": ("Query Registry", ["TA0007"]),
+    # --- Collection ---
+    "T1005": ("Data from Local System", ["TA0009"]),
+    "T1113": ("Screen Capture", ["TA0009"]),
+    # --- Initial Access ---
+    "T1566.001": ("Phishing: Spearphishing Attachment", ["TA0001"]),
+    "T1190": ("Exploit Public-Facing Application", ["TA0001"]),
 }
 
 # Artifact key (set by parsers/specialists) -> [technique_ids]. Where an
@@ -100,16 +122,44 @@ ARTIFACT_TECHNIQUES: dict[str, list[str]] = {
     "password_spray": ["T1110.003"],
     "account_manipulation": ["T1098"],
     "exploit_remote_service": ["T1210"],
+    # Discovery (process / file / system enumeration artifacts)
+    "process_discovery": ["T1057"],
+    "file_directory_discovery": ["T1083"],
+    "system_info_discovery": ["T1082"],
+    "network_conn_discovery": ["T1049"],
+    "query_registry": ["T1012"],
+    # Collection
+    "local_data_collection": ["T1005"],
+    # Initial access
+    "phishing": ["T1566.001"],
+    # LOLBAS
+    "lolbas_certutil": ["T1140", "T1105"],
+    "lolbas_regsvr32": ["T1218.010"],
+    "lolbas_mshta": ["T1218.005"],
+    "lolbas_bits": ["T1197"],
+    "lolbas_msiexec": ["T1218.007"],
+    "lolbas_rundll32": ["T1218.011"],
+    "lolbas_cmd": ["T1059.003"],
+    "lolbas_vbs": ["T1059.005"],
+    "winrm": ["T1021.006"],
 }
 
 # Windows Security/Sysmon event ID -> artifact key (a hint, not a verdict).
 EVENTID_ARTIFACT: dict[int, str] = {
-    7045: "service_install",        # System log: A service was installed
-    4698: "scheduled_task",         # Security: Scheduled task created
-    4104: "powershell_suspicious",  # PowerShell ScriptBlock logging
-    1102: "clear_event_log",        # Security log was cleared
-    4720: "local_account_created",  # A user account was created
-    4662: "dcsync",                 # Directory service access (DS-Replication)
-    4771: "password_spray",         # Kerberos pre-auth failed
-    4625: "password_spray",         # Failed logon (volume => spray/bruteforce)
+    7045: "service_install",         # System log: A service was installed
+    4698: "scheduled_task",          # Security: Scheduled task created
+    4104: "powershell_suspicious",   # PowerShell ScriptBlock logging
+    1102: "clear_event_log",         # Security log was cleared
+    4720: "local_account_created",   # A user account was created
+    4662: "dcsync",                  # Directory service access (DS-Replication)
+    4771: "password_spray",          # Kerberos pre-auth failed
+    4625: "password_spray",          # Failed logon (volume => spray/bruteforce)
+    4648: "pass_the_hash",           # Explicit credential use
+    4768: "pass_the_hash",           # Kerberos TGT request
+    4769: "pass_the_hash",           # Kerberos TGS request (RC4)
+    4776: "remote_logon_ntlm",       # NTLM authentication
+    4624: "remote_logon_ntlm",       # Successful logon
+    4688: "process_discovery",       # Process created (Sysmon-equivalent)
+    4663: "file_directory_discovery",# Object access: file/dir enumeration
+    4657: "query_registry",          # Registry value modified/queried
 }

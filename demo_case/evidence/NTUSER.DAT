@@ -1,0 +1,4 @@
+GLASSBOX_REPLAY_STUB: NTUSER.DAT registry hive placeholder.
+Replace with the actual registry hive extracted from the disk image for live analysis.
+Commands: reg.py from Volatility, or extract via ewfmount + regipy / regripper.
+Replay fixture: demo_case/fixtures/registry_analyze_all.txt

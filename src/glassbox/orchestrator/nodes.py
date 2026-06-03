@@ -45,10 +45,11 @@ def _dedup_iocs(iocs) -> list:
 
 
 EVIDENCE_PLAN = {
-    EvidenceType.MEMORY: ("memory_analyst", ["mem_pslist", "mem_netscan", "mem_cmdline", "yara_scan"]),
-    EvidenceType.EVTX:   ("evtx_analyst",   ["evtx_hunt", "evtx_to_json"]),
-    EvidenceType.DISK:   ("disk_analyst",   ["disk_partition_table", "disk_list_files", "disk_mft_timeline"]),
-    EvidenceType.PCAP:   ("network_analyst", ["pcap_conn_summary", "pcap_dns", "pcap_http"]),
+    EvidenceType.MEMORY:   ("memory_analyst",   ["mem_pslist", "mem_netscan", "mem_cmdline", "yara_scan"]),
+    EvidenceType.EVTX:     ("evtx_analyst",     ["evtx_hunt", "evtx_to_json"]),
+    EvidenceType.DISK:     ("disk_analyst",     ["disk_partition_table", "disk_list_files", "disk_mft_timeline"]),
+    EvidenceType.PCAP:     ("network_analyst",  ["pcap_conn_summary", "pcap_dns", "pcap_http"]),
+    EvidenceType.REGISTRY: ("registry_analyst", ["registry_analyze"]),
 }
 # discrepancy kind -> artifact key for ATT&CK enrichment
 _DISC_ARTIFACT = {
@@ -167,12 +168,13 @@ def collect(state, *, ctx: CaseContext, llm: BaseLLM, seq: Callable[[], int]) ->
         iteration = int(state.get("iteration", 1))
         findings = _merge_findings(findings, out["findings"], iteration=iteration)
         specialist_iocs.extend(out.get("iocs", []))
-        if agent in ("memory_analyst",):
+        if agent == "memory_analyst":
             mem_view.update(out["view"])
-        if agent in ("disk_analyst",):
+        elif agent == "disk_analyst":
             disk_view.update(out["view"])
-        if agent in ("evtx_analyst",):
+        elif agent == "evtx_analyst":
             evtx_view.update(out["view"])
+        # registry_analyst findings flow into findings list only (no separate view needed)
         executed += out["executed"]
         degraded += out["degraded"]
         _, usage = llm.narrate("You are a DFIR specialist; explain findings briefly.", out["rationale"])
@@ -278,7 +280,13 @@ def map_attack(state, *, ctx: CaseContext) -> dict:
 
 def verify(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
     known = ctx.known_exec_ids()
-    result = verify_findings(state.get("findings", []), ctx.rawstore, known, audit=ctx.audit)
+    findings_to_verify = list(state.get("findings", []))
+    # Apply persistent lessons log: pre-downgrade known-bad patterns
+    suppressed = ctx.lessons.apply_to_findings(findings_to_verify)
+    if suppressed > 0:
+        ctx.audit.append("lessons_applied", suppressed_count=suppressed,
+                         lessons_total=ctx.lessons.summary()["total_lessons"])
+    result = verify_findings(findings_to_verify, ctx.rawstore, known, audit=ctx.audit)
     reportable_ids = [f.finding_id for f in result.verified]
     kept_disc, dropped_disc = verify_discrepancies(
         state.get("discrepancies", []), reportable_ids, ctx.rawstore, known, audit=ctx.audit
@@ -388,6 +396,14 @@ def report(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
     chain_valid, chain_errs = ctx.audit.verify_self()
     findings = state.get("findings", [])
     discrepancies = state.get("discrepancies", [])
+    # Persistent learning: save lessons from quarantined findings for future runs
+    quarantined = state.get("quarantined", [])
+    new_lessons = ctx.lessons.append_from_quarantined(
+        quarantined, run_id=ctx.config.case_id
+    )
+    if new_lessons > 0:
+        ctx.audit.append("lessons_learned", new_lessons=new_lessons,
+                         lessons_summary=ctx.lessons.summary())
     attack = state.get("attack", [])
     a2a = state.get("a2a", [])
     total = TokenUsage()
@@ -418,6 +434,7 @@ def report(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
         audit_chain_valid=chain_valid,
         timeline=[e.as_dict() for e in timeline],
         narrative=narrative,
+        lessons_summary=ctx.lessons.summary(),
     )
     ctx.audit.append("report", n_findings=len(findings),
                      n_quarantined=len(state.get("quarantined", [])),

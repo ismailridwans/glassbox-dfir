@@ -54,6 +54,10 @@ def render_markdown(rep: TriageReport, a2a: list[Any] | None = None) -> str:
     a(f"Audit chain valid: {'✅' if rep.audit_chain_valid else '❌ CHAIN BROKEN'}  ")
     a(f"Spoliation detected: {'❌ YES' if any(not r.unchanged for r in rep.integrity) else '✅ No'}  ")
     a(f"Total tokens: {rep.total_tokens.total}  ")
+    if rep.lessons_summary:
+        ls = rep.lessons_summary
+        a(f"Lessons log: {ls.get('total_lessons', 0)} lessons, "
+          f"{ls.get('total_suppressed', 0)} pre-suppressions this run  ")
     a(f"")
     a(f"> **{rep.summary}**")
     a(f"")

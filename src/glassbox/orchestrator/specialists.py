@@ -132,8 +132,40 @@ def run_memory(toolkit, evidence: str, tools: list[str], *, demo_overclaim: bool
         s = res.summary
 
         if tool == "mem_pslist":
-            out["view"]["pslist"] = s.get("processes", [])
+            procs = s.get("processes", [])
+            out["view"]["pslist"] = procs
             out["view"]["pslist_exec_id"] = res.tool_exec_id
+            # T1057 Process Discovery: enumerating a running process list is itself an artifact
+            if procs:
+                out["findings"].append(_finding(
+                    title=f"Process discovery: {len(procs)} running processes enumerated",
+                    desc=(f"mem_pslist enumerated {len(procs)} active processes. "
+                          f"Process discovery (T1057) is a standard initial-access follow-on activity. "
+                          f"Notable: {', '.join(p.get('name','?') for p in procs[:5])}."),
+                    evtype=EvidenceType.MEMORY, severity=Severity.INFO,
+                    confidence=Confidence.CONFIRMED, attack=_attack_for("process_discovery"),
+                    cited=[str(procs[0].get("pid", ""))],
+                    prov=[_prov(res.tool_exec_id, "mem_pslist", str(procs[0].get("pid", "")))],
+                    agent=agent))
+            # Flag suspicious process names (masquerade patterns)
+            _MASQ = {
+                "lsasss.exe": "lsass.exe double-s masquerade",
+                "svchost32.exe": "svchost with bit-count suffix masquerade",
+                "svch0st.exe": "svchost with zero-substitution masquerade",
+                "csrss32.exe": "csrss masquerade",
+                "reader_sl.exe": "Adobe Reader SpeedLauncher — suspicious if not expected",
+            }
+            for p in procs:
+                name_lower = str(p.get("name", "")).lower()
+                if name_lower in _MASQ:
+                    out["findings"].append(_finding(
+                        title=f"Suspicious process name: {p.get('name')} (PID {p.get('pid')})",
+                        desc=f"{_MASQ[name_lower]}. PID={p.get('pid')}, PPID={p.get('ppid')}.",
+                        evtype=EvidenceType.MEMORY, severity=Severity.HIGH,
+                        confidence=Confidence.CONFIRMED, attack=_attack_for("masquerade_rename"),
+                        cited=[str(p.get("name", ""))],
+                        prov=[_prov(res.tool_exec_id, "mem_pslist", str(p.get("name", "")))],
+                        agent=agent))
             reasons.append(f"pslist: {s.get('count', 0)} active processes")
         elif tool == "mem_pstree":
             procs = s.get("processes", [])
@@ -193,6 +225,17 @@ def run_memory(toolkit, evidence: str, tools: list[str], *, demo_overclaim: bool
                     confidence=Confidence.CONFIRMED, attack=_attack_for("http_c2"),
                     cited=[raddr], prov=[_prov(res.tool_exec_id, "mem_netscan", raddr)],
                     agent=agent, iocs=[ioc]))
+            # T1049 System Network Connections Discovery: netscan itself is the discovery act
+            total_conns = len(s.get("connections", []))
+            if total_conns > 0:
+                out["findings"].append(_finding(
+                    title=f"Network connection discovery: {total_conns} connection(s) in memory",
+                    desc=f"mem_netscan enumerated {total_conns} active network connections (T1049).",
+                    evtype=EvidenceType.MEMORY, severity=Severity.INFO,
+                    confidence=Confidence.CONFIRMED, attack=_attack_for("network_conn_discovery"),
+                    cited=[str(total_conns)],
+                    prov=[_prov(res.tool_exec_id, "mem_netscan", str(total_conns))],
+                    agent=agent))
             reasons.append(f"netscan: {ext} external connection(s)")
             if demo_overclaim and ext:
                 # Over-eager assessment with an unsupported quantity -> gate must catch it.
@@ -404,6 +447,19 @@ def run_disk(toolkit, evidence: str, tools: list[str]) -> SpecialistOutput:
             ntfs = [p for p in parts if "ntfs" in str(p.get("description", "")).lower()]
             if ntfs:
                 offset = ntfs[0]["start"]
+            if parts:
+                out["findings"].append(_finding(
+                    title=f"Disk partition table: {len(parts)} partition(s) identified",
+                    desc=(f"mmls found {len(parts)} partition(s). "
+                          f"{'NTFS at sector ' + str(offset) + '.' if offset else 'No NTFS detected.'} "
+                          f"File system enumeration maps to T1083 (File and Directory Discovery)."),
+                    evtype=EvidenceType.DISK, severity=Severity.INFO,
+                    confidence=Confidence.CONFIRMED,
+                    attack=_attack_for("file_directory_discovery"),
+                    cited=[str(parts[0].get("start", "0"))],
+                    prov=[_prov(res.tool_exec_id, "disk_partition_table",
+                                str(parts[0].get("start", "0")))],
+                    agent=agent))
             reasons.append(f"mmls: {len(parts)} partitions (offset={offset})")
         elif tool == "disk_list_files":
             out["view"]["image_names"] = s.get("image_names", [])
@@ -437,19 +493,36 @@ def run_disk(toolkit, evidence: str, tools: list[str]) -> SpecialistOutput:
                     out.setdefault("iocs", []).append(ioc)
             reasons.append(f"fls: {s.get('count', 0)} files ({len(out['view'].get('image_names', []))} images)")
         elif tool == "disk_mft_timeline":
-            # Detect recently-modified executables (changed within 10 min of first suspicious event)
-            susp_paths = [str(f.get("path", "")).lower() for f in s.get("entries", [])
-                          if str(f.get("name", "")).lower().endswith((".exe", ".dll"))
-                          and any(d in str(f.get("path", "")).lower()
-                                  for d in ("users/public", "temp", "programdata", "appdata"))]
-            for path in susp_paths[:3]:
+            # bodyfile field index 1 == name (full path), detect suspicious executables
+            _SUSP_DIRS_T = ("users/public", "/temp/", "\\temp\\", "programdata", "appdata")
+            susp: list[tuple[str, str]] = []
+            for entry in s.get("entries", []):
+                # 'name' holds the full path in bodyfile format
+                path = str(entry.get("name", "")).lower()
+                if not path.endswith((".exe", ".dll", ".bat", ".ps1")):
+                    continue
+                if any(d in path for d in _SUSP_DIRS_T):
+                    susp.append((path, entry.get("mtime", "")))
+            for path, mtime in susp[:3]:
+                fname = path.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
                 out["findings"].append(_finding(
-                    title=f"Suspicious executable modified on disk: {path.rsplit('/', 1)[-1]}",
-                    desc=f"MFT timeline shows executable at '{path}' with a suspicious modification timestamp.",
-                    evtype=EvidenceType.DISK, severity=Severity.MEDIUM, confidence=Confidence.CONFIRMED,
-                    attack=_attack_for("masquerade_path"), cited=[path],
-                    prov=[_prov(res.tool_exec_id, "disk_mft_timeline", path)], agent=agent))
-            reasons.append(f"timeline: {s.get('count', 0)} entries ({len(susp_paths)} suspicious)")
+                    title=f"Suspicious executable on disk timeline: {fname}",
+                    desc=(f"MFT timeline shows '{path}' (mtime {mtime}) in a writable/temp directory. "
+                          f"Consistent with dropper activity."),
+                    evtype=EvidenceType.DISK, severity=Severity.HIGH, confidence=Confidence.CONFIRMED,
+                    attack=_attack_for("masquerade_path"), cited=[fname],
+                    prov=[_prov(res.tool_exec_id, "disk_mft_timeline", fname)], agent=agent))
+            # Even with 0 suspicious, emit a timeline coverage finding
+            if s.get("count", 0) > 0 and not susp:
+                out["findings"].append(_finding(
+                    title=f"MFT timeline: {s.get('count')} entries analysed — no suspicious executables",
+                    desc="Filesystem timeline reviewed. No executables in writable paths detected.",
+                    evtype=EvidenceType.DISK, severity=Severity.INFO, confidence=Confidence.CONFIRMED,
+                    attack=_attack_for("file_directory_discovery"),
+                    cited=[str(s.get("count", 0))],
+                    prov=[_prov(res.tool_exec_id, "disk_mft_timeline", str(s.get("count", 0)))],
+                    agent=agent))
+            reasons.append(f"timeline: {s.get('count', 0)} entries ({len(susp)} suspicious)")
     out["rationale"] = "; ".join(reasons)
     return out
 
@@ -511,9 +584,78 @@ def run_network(toolkit, evidence: str, tools: list[str]) -> SpecialistOutput:
     return out
 
 
+def run_registry(toolkit, evidence: str, tools: list[str]) -> SpecialistOutput:
+    """Registry analyst: detect persistence keys, service installs, evidence of execution."""
+    out = _empty()
+    agent = "registry_analyst"
+    reasons = []
+    for tool in tools:
+        fn = getattr(toolkit, tool, None)
+        if fn is None:
+            continue
+        res = fn(evidence)
+        out["executed"].append(res.tool_exec_id)
+        if res.status not in ("OK", "DEGRADED"):
+            out["degraded"].append(tool)
+            reasons.append(f"{tool} -> {res.status}")
+            continue
+        s = res.summary
+        for section in s.get("sections", []):
+            plugin = str(section.get("plugin", "")).lower()
+            for entry in section.get("entries", []):
+                key = str(entry.get("key", "")).lower()
+                value = str(entry.get("value", ""))
+                value_l = value.lower()
+                last_write = entry.get("last_write", "")
+                # Run key / autorun persistence
+                if "run" in plugin or "run" in key or "autorun" in plugin:
+                    if any(c in value_l for c in ("\\users\\public\\", "\\temp\\", "\\appdata\\")):
+                        out["findings"].append(_finding(
+                            title=f"Persistence: Run key pointing to suspicious path",
+                            desc=f"Registry Run key '{key}' = '{value}' (last write: {last_write}). "
+                                 f"Executable in writable user directory — classic persistence mechanism.",
+                            evtype=EvidenceType.REGISTRY if hasattr(EvidenceType, 'REGISTRY') else EvidenceType.DISK,
+                            severity=Severity.HIGH, confidence=Confidence.CONFIRMED,
+                            attack=_attack_for("registry_run_key"),
+                            cited=[value],
+                            prov=[_prov(res.tool_exec_id, "registry_analyze", value)],
+                            agent=agent, observed_at=last_write))
+                        out.setdefault("iocs", []).extend(
+                            _harvest_iocs_from_text(value, value, "registry_analyze", res.tool_exec_id))
+                # Service entries pointing to suspicious paths
+                elif "service" in plugin:
+                    if "imagepath" in key and any(d in value_l for d in ("\\users\\", "\\temp\\", "\\public\\")):
+                        out["findings"].append(_finding(
+                            title=f"Malicious service ImagePath in registry",
+                            desc=f"Service registry entry ImagePath='{value}' in suspicious path. "
+                                 f"(last write: {last_write}). Consistent with T1543.003.",
+                            evtype=EvidenceType.REGISTRY if hasattr(EvidenceType, 'REGISTRY') else EvidenceType.DISK,
+                            severity=Severity.HIGH, confidence=Confidence.CONFIRMED,
+                            attack=_attack_for("service_install"),
+                            cited=[value],
+                            prov=[_prov(res.tool_exec_id, "registry_analyze", value)],
+                            agent=agent, observed_at=last_write))
+                # Query registry discovery finding
+                elif "recentdocs" in plugin or "userassist" in plugin:
+                    out["findings"].append(_finding(
+                        title=f"Registry execution evidence: {plugin}",
+                        desc=f"Registry key '{key}' = '{value}' (last write: {last_write}). "
+                             f"Evidence of recent file access / program execution.",
+                        evtype=EvidenceType.REGISTRY if hasattr(EvidenceType, 'REGISTRY') else EvidenceType.DISK,
+                        severity=Severity.LOW, confidence=Confidence.CONFIRMED,
+                        attack=_attack_for("query_registry"),
+                        cited=[key],
+                        prov=[_prov(res.tool_exec_id, "registry_analyze", key)],
+                        agent=agent))
+        reasons.append(f"registry_analyze: {s.get('count', 0)} entries")
+    out["rationale"] = "; ".join(reasons)
+    return out
+
+
 SPECIALISTS = {
     "memory_analyst": run_memory,
     "evtx_analyst": run_evtx,
     "disk_analyst": run_disk,
     "network_analyst": run_network,
+    "registry_analyst": run_registry,
 }

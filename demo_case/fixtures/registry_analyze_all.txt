@@ -1,0 +1,30 @@
+run v1.0
+(C) Harlan Carvey, 2012
+----------------------------------------
+LastWrite Time 2012-07-22 02:43:15 UTC
+HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+  cridex = C:\Users\Public\cridex.exe
+
+autorun v1.0
+(C) Harlan Carvey, 2012
+----------------------------------------
+LastWrite Time 2012-07-22 02:43:15 UTC
+HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
+  Userinit = C:\WINDOWS\system32\userinit.exe,
+  Shell = Explorer.exe
+
+services v1.0
+(C) Harlan Carvey, 2012
+----------------------------------------
+LastWrite Time 2012-07-22 02:43:02 UTC
+HKLM\SYSTEM\CurrentControlSet\Services\Cridex
+  ImagePath = C:\Users\Public\cridex.exe
+  Start = 2
+  Type = 16
+
+recentdocs v1.0
+(C) Harlan Carvey, 2012
+----------------------------------------
+LastWrite Time 2012-07-22 02:42:30 UTC
+HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs
+  .exe = cridex.exe

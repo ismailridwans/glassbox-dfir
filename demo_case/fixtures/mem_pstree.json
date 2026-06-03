@@ -1,8 +1,11 @@
 [
-  {"PID": 4,    "PPID": 0,    "ImageFileName": "System"},
-  {"PID": 272,  "PPID": 4,    "ImageFileName": "smss.exe"},
-  {"PID": 368,  "PPID": 272,  "ImageFileName": "winlogon.exe"},
-  {"PID": 424,  "PPID": 368,  "ImageFileName": "lsass.exe"},
-  {"PID": 1484, "PPID": 1464, "ImageFileName": "explorer.exe"},
-  {"PID": 1640, "PPID": 1484, "ImageFileName": "reader_sl.exe"}
+  {"PID": 4,    "PPID": 0,    "name": "System"},
+  {"PID": 272,  "PPID": 4,    "name": "smss.exe"},
+  {"PID": 368,  "PPID": 272,  "name": "winlogon.exe"},
+  {"PID": 412,  "PPID": 368,  "name": "services.exe"},
+  {"PID": 424,  "PPID": 368,  "name": "lsass.exe"},
+  {"PID": 1484, "PPID": 1464, "name": "explorer.exe"},
+  {"PID": 1640, "PPID": 1484, "name": "reader_sl.exe"},
+  {"PID": 1680, "PPID": 1640, "name": "cmd.exe"},
+  {"PID": 1690, "PPID": 1680, "name": "powershell.exe"}
 ]

@@ -10,6 +10,7 @@ from glassbox.audit.rawstore import RawStore
 from glassbox.config import GlassboxConfig
 from glassbox.evidence.integrity import IntegrityGuard
 from glassbox.evidence.vault import EvidenceVault
+from glassbox.learning.lessons import LessonsLog
 from glassbox.mcp_server.runner import ToolPaths, ToolRunner
 from glassbox.mcp_server.toolkit import ReadOnlyToolKit
 
@@ -34,6 +35,7 @@ class CaseContext:
             self.vault, self.runner, scratch_dir=config.scratch_dir, replay=replay
         )
         self.integrity = IntegrityGuard(self.vault, self.audit)
+        self.lessons = LessonsLog(config.case_dir / "lessons.jsonl")
         self.audit.append(
             "case_open",
             case_id=config.case_id,

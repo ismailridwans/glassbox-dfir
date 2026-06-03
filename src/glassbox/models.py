@@ -66,6 +66,7 @@ class EvidenceType(str, Enum):
     MEMORY = "memory"
     EVTX = "evtx"
     PCAP = "pcap"
+    REGISTRY = "registry"
     UNKNOWN = "unknown"
 
 
@@ -246,6 +247,8 @@ class TriageReport(BaseModel):
     audit_chain_valid: Optional[bool] = None
     timeline: list[dict] = Field(default_factory=list, description="Sorted cross-source event timeline")
     narrative: str = Field(default="", description="Auto-generated incident narrative")
+    lessons_summary: dict = Field(default_factory=dict,
+                                   description="Persistent learning loop state")
 
     # --- convenience rollups for the accuracy report -------------------------
     def confirmed(self) -> list[Finding]:
