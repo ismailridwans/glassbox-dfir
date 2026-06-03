@@ -174,6 +174,9 @@ class Finding(BaseModel):
     provenance: list[Provenance] = Field(default_factory=list)
     source_agent: str = "unknown"
     verifier_note: str = ""
+    confidence_score: float = Field(default=0.0, ge=0.0, le=1.0,
+                                     description="Numeric confidence 0.0-1.0 (updated by verifier)")
+    iteration_found: int = Field(default=1, description="Which triage iteration first found this")
 
     def is_reportable(self) -> bool:
         return self.confidence in (Confidence.CONFIRMED, Confidence.INFERRED)

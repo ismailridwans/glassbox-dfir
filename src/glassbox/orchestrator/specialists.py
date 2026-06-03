@@ -52,6 +52,17 @@ def _prov(exec_id: str, tool: str, locator, note: str = "") -> Provenance:
     return Provenance(tool_exec_id=exec_id, tool=tool, raw_locator=str(locator), note=note)
 
 
+def _harvest_iocs_from_text(text: str, locator: str, tool: str, exec_id: str) -> list[IOC]:
+    """Extract IOCs from an arbitrary text snippet, grounding them to exec_id."""
+    from glassbox.ioc.extract import extract_iocs
+    prov = [Provenance(tool_exec_id=exec_id, tool=tool, raw_locator=locator)]
+    iocs = extract_iocs(text, provenance=prov, include_filepaths=True)
+    for ioc in iocs:
+        for p in ioc.provenance:
+            p.raw_locator = ioc.value
+    return iocs
+
+
 def _harvest_iocs(toolkit, exec_id: str, context: str = "") -> list[IOC]:
     """Extract and return grounded IOCs from a tool execution's captured output."""
     raw = toolkit.runner.rawstore.get_raw(exec_id)
@@ -120,10 +131,44 @@ def run_memory(toolkit, evidence: str, tools: list[str], *, demo_overclaim: bool
             continue
         s = res.summary
 
-        if tool in ("mem_pslist", "mem_pstree"):
+        if tool == "mem_pslist":
             out["view"]["pslist"] = s.get("processes", [])
             out["view"]["pslist_exec_id"] = res.tool_exec_id
             reasons.append(f"pslist: {s.get('count', 0)} active processes")
+        elif tool == "mem_pstree":
+            procs = s.get("processes", [])
+            # Only update pslist if pstree found >= as many procs as the current view
+            # (pslist from vol.pslist is canonical; pstree is for parent-chain only)
+            existing_pslist = out["view"].get("pslist", [])
+            if len(procs) >= len(existing_pslist):
+                out["view"]["pslist"] = procs
+                out["view"]["pslist_exec_id"] = res.tool_exec_id
+            out["view"]["pstree"] = procs  # separate key for pstree-specific analysis
+            out["view"]["pstree_exec_id"] = res.tool_exec_id
+            # Suspicious parent-child chains: Office/browser spawning shells
+            _SHELL_NAMES = {"cmd.exe", "powershell.exe", "wscript.exe", "cscript.exe", "mshta.exe"}
+            _LOADER_NAMES = {"winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe",
+                             "chrome.exe", "firefox.exe", "iexplore.exe", "msedge.exe",
+                             "explorer.exe", "reader_sl.exe", "acrord32.exe"}
+            by_pid = {int(p["pid"]): p for p in procs if "pid" in p}
+            for p in procs:
+                name = str(p.get("name", "")).lower()
+                if name not in _SHELL_NAMES:
+                    continue
+                ppid = int(p.get("ppid", -1))
+                parent = by_pid.get(ppid)
+                pname = str(parent.get("name", "")).lower() if parent else ""
+                if pname in _LOADER_NAMES:
+                    out["findings"].append(_finding(
+                        title=f"Suspicious spawn: {pname} -> {name} (PID {p.get('pid')})",
+                        desc=(f"Process '{name}' (PID {p.get('pid')}) was spawned by "
+                              f"'{pname}' (PID {ppid}). Typical phishing/code-execution pattern."),
+                        evtype=EvidenceType.MEMORY, severity=Severity.HIGH, confidence=Confidence.CONFIRMED,
+                        attack=_attack_for("powershell_suspicious"),
+                        cited=[str(p.get("pid"))],
+                        prov=[_prov(res.tool_exec_id, "mem_pstree", str(p.get("pid")))],
+                        agent=agent))
+            reasons.append(f"pstree: {len(procs)} processes ({len(out['findings'])} spawn anomalies)")
         elif tool == "mem_psscan":
             out["view"]["psscan"] = s.get("processes", [])
             out["view"]["psscan_exec_id"] = res.tool_exec_id
@@ -173,7 +218,8 @@ def run_memory(toolkit, evidence: str, tools: list[str], *, demo_overclaim: bool
                     agent=agent))
             reasons.append(f"malfind: {s.get('count', 0)} injection candidate(s)")
         elif tool == "mem_cmdline":
-            for cl in s.get("cmdlines", []):
+            cmdlines_list = s.get("cmdlines", [])
+            for cl in cmdlines_list:
                 args = str(cl.get("args", ""))
                 low = args.lower()
                 hit = next((kw for kw in _PS_ENCODED if kw in low), None)
@@ -185,7 +231,14 @@ def run_memory(toolkit, evidence: str, tools: list[str], *, demo_overclaim: bool
                         confidence=Confidence.CONFIRMED, attack=_attack_for("powershell_encoded"),
                         cited=[hit.strip()], prov=[_prov(res.tool_exec_id, "mem_cmdline", hit.strip())],
                         agent=agent))
-            reasons.append(f"cmdline: {s.get('count', 0)} command lines reviewed")
+            # LOLBAS detection across all command lines
+            from glassbox.detect.lolbas import detect_lolbas_abuse
+            lolbas_findings = detect_lolbas_abuse(cmdlines_list, res.tool_exec_id)
+            out["findings"].extend(lolbas_findings)
+            # Store cmdlines for cross-tool correlation (credential + lateral)
+            out["view"]["cmdlines"] = cmdlines_list
+            out["view"]["cmdline_exec_id"] = res.tool_exec_id
+            reasons.append(f"cmdline: {s.get('count', 0)} command lines reviewed ({len(lolbas_findings)} LOLBAS)")
         elif tool == "mem_svcscan":
             for svc in s.get("services", []):
                 binp = str(svc.get("binary", "")).lower()
@@ -198,6 +251,44 @@ def run_memory(toolkit, evidence: str, tools: list[str], *, demo_overclaim: bool
                         cited=[str(svc.get("name"))], prov=[_prov(res.tool_exec_id, "mem_svcscan", svc.get("name"))],
                         agent=agent))
             reasons.append(f"svcscan: {s.get('count', 0)} services")
+        elif tool == "mem_dlllist":
+            _BAD_DLL_NAMES = {"inject.dll", "hook.dll", "payload.dll", "malware.dll"}
+            _SUSP_DLL_PATHS = ("\\users\\public\\", "\\appdata\\local\\temp\\", "\\programdata\\")
+            for dll in s.get("dlls", []):
+                name = str(dll.get("name", "")).lower()
+                path = str(dll.get("path", "")).lower()
+                if name == "unknown" or (not name and not dll.get("path")):
+                    pid = dll.get("pid")
+                    out["findings"].append(_finding(
+                        title=f"Unknown/unmapped DLL in PID {pid}",
+                        desc=f"PID {pid} has a loaded DLL with no mapped filename at base {dll.get('base')} — possible injection.",
+                        evtype=EvidenceType.MEMORY, severity=Severity.HIGH, confidence=Confidence.CONFIRMED,
+                        attack=_attack_for("process_injection"), cited=[str(pid)],
+                        prov=[_prov(res.tool_exec_id, "mem_dlllist", str(pid))], agent=agent))
+                elif name in _BAD_DLL_NAMES or any(d in path for d in _SUSP_DLL_PATHS):
+                    out["findings"].append(_finding(
+                        title=f"Suspicious DLL loaded: {dll.get('name')}",
+                        desc=f"DLL '{dll.get('name')}' loaded from suspicious path '{dll.get('path')}' in PID {dll.get('pid')}.",
+                        evtype=EvidenceType.MEMORY, severity=Severity.HIGH, confidence=Confidence.CONFIRMED,
+                        attack=_attack_for("process_injection"), cited=[dll.get("name", "")],
+                        prov=[_prov(res.tool_exec_id, "mem_dlllist", dll.get("name", ""))], agent=agent))
+            reasons.append(f"dlllist: {s.get('count', 0)} DLLs")
+        elif tool == "yara_scan":
+            _TECH_MAP = {
+                "Cridex_C2_URL_Pattern": "http_c2", "Cridex_Reader_SL_Masquerade": "masquerade_path",
+                "Generic_PE_In_RWX_Region": "process_injection", "Powershell_Encoded_Command": "powershell_encoded",
+                "LSASS_Credential_Dump": "lsass_dump",
+            }
+            for hit in s.get("hits", []):
+                rule = hit.get("rule", "")
+                artifact = _TECH_MAP.get(rule, "process_injection")
+                out["findings"].append(_finding(
+                    title=f"YARA match: {rule}",
+                    desc=f"YARA rule '{rule}' matched in {hit.get('target', 'evidence')}.",
+                    evtype=EvidenceType.MEMORY, severity=Severity.HIGH, confidence=Confidence.CONFIRMED,
+                    attack=_attack_for(artifact), cited=[rule],
+                    prov=[_prov(res.tool_exec_id, "yara_scan", rule)], agent=agent))
+            reasons.append(f"yara_scan: {s.get('count', 0)} match(es)")
     out["rationale"] = "; ".join(reasons)
     return out
 
@@ -249,19 +340,42 @@ def run_evtx(toolkit, evidence: str, tools: list[str]) -> SpecialistOutput:
                     ioc.provenance[0].raw_locator = ioc.value
                     out.setdefault("iocs", []).append(ioc)
         elif tool in ("evtx_to_json", "evtx_dump_xml"):
+            # Map every event ID in the histogram to ATT&CK techniques
             hist = s.get("event_id_histogram", {})
-            if "1102" in hist:
+            for eid_str, count in hist.items():
+                try:
+                    eid = int(eid_str)
+                except ValueError:
+                    continue
+                mappings = for_event_id(eid)
+                if not mappings:
+                    continue
                 out["findings"].append(_finding(
-                    title="Windows event log cleared (EventID 1102)",
-                    desc="Security event log clearing observed — common anti-forensic / defense-evasion action.",
+                    title=f"EventID {eid} x{count} — {mappings[0].technique_name[:50]}",
+                    desc=(f"Event log shows EventID {eid} occurred {count} time(s). "
+                          f"Maps to {', '.join(m.technique_id for m in mappings)}."),
                     evtype=EvidenceType.EVTX, severity=Severity.HIGH, confidence=Confidence.CONFIRMED,
-                    attack=_attack_for("clear_event_log"), cited=["1102"],
-                    prov=[_prov(res.tool_exec_id, tool, "1102")], agent=agent))
-            # Harvest path IOCs from EVTX events (service paths, file names)
+                    attack=mappings, cited=[eid_str],
+                    prov=[_prov(res.tool_exec_id, tool, eid_str)], agent=agent))
+            # Also map structured events from evtx_to_json parsed events
+            for ev in s.get("events", []):
+                eid_str = str(ev.get("event_id", ""))
+                payload = str(ev.get("payload", "") or ev.get("map_desc", ""))
+                if eid_str and payload:
+                    # Extract IOCs from payload field
+                    for ioc in _harvest_iocs_from_text(payload, eid_str, tool, res.tool_exec_id):
+                        out.setdefault("iocs", []).append(ioc)
+            # Harvest path IOCs from EVTX raw output
             for ioc in _harvest_iocs(toolkit, res.tool_exec_id, f"{tool} events"):
                 if ioc.type in ("filepath", "sha256", "ipv4"):
                     out.setdefault("iocs", []).append(ioc)
-            reasons.append(f"{tool}: {s.get('count', 0)} events")
+            # Credential access + lateral movement detection from structured events
+            evs = s.get("events", [])
+            if evs:
+                # Store for cross-specialist correlation in the correlate node
+                out["view"]["evtx_events"] = evs
+                out["view"]["evtx_to_json_exec_id"] = res.tool_exec_id
+            reasons.append(f"{tool}: {len(evs) or s.get('count', 0)} events")
     out["rationale"] = "; ".join(reasons) or ("no evtx detections" if ran_hunt else "evtx not analyzed")
     return out
 
@@ -323,7 +437,19 @@ def run_disk(toolkit, evidence: str, tools: list[str]) -> SpecialistOutput:
                     out.setdefault("iocs", []).append(ioc)
             reasons.append(f"fls: {s.get('count', 0)} files ({len(out['view'].get('image_names', []))} images)")
         elif tool == "disk_mft_timeline":
-            reasons.append(f"timeline: {s.get('count', 0)} entries")
+            # Detect recently-modified executables (changed within 10 min of first suspicious event)
+            susp_paths = [str(f.get("path", "")).lower() for f in s.get("entries", [])
+                          if str(f.get("name", "")).lower().endswith((".exe", ".dll"))
+                          and any(d in str(f.get("path", "")).lower()
+                                  for d in ("users/public", "temp", "programdata", "appdata"))]
+            for path in susp_paths[:3]:
+                out["findings"].append(_finding(
+                    title=f"Suspicious executable modified on disk: {path.rsplit('/', 1)[-1]}",
+                    desc=f"MFT timeline shows executable at '{path}' with a suspicious modification timestamp.",
+                    evtype=EvidenceType.DISK, severity=Severity.MEDIUM, confidence=Confidence.CONFIRMED,
+                    attack=_attack_for("masquerade_path"), cited=[path],
+                    prov=[_prov(res.tool_exec_id, "disk_mft_timeline", path)], agent=agent))
+            reasons.append(f"timeline: {s.get('count', 0)} entries ({len(susp_paths)} suspicious)")
     out["rationale"] = "; ".join(reasons)
     return out
 

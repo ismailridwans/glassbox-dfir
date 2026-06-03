@@ -149,6 +149,14 @@ def verify_findings(
         outcome = _check_finding(finding, rawstore, known)
         finding.confidence = outcome.verdict
         finding.verifier_note = "; ".join(outcome.reasons)
+        # Confidence score: 1.0 for CONFIRMED, 0.7 for INFERRED, 0.0 for HALLUCINATED
+        # Modulated by number of verified locators (more evidence = higher score)
+        if outcome.verdict == Confidence.CONFIRMED:
+            finding.confidence_score = min(1.0, 0.7 + 0.1 * min(outcome.checked_locators, 3))
+        elif outcome.verdict == Confidence.INFERRED:
+            finding.confidence_score = 0.6
+        else:
+            finding.confidence_score = 0.0
         result.outcomes.append(outcome)
         if outcome.verdict == Confidence.HALLUCINATED:
             result.quarantined.append(finding)

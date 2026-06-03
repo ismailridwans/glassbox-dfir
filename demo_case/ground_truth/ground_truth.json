@@ -1,6 +1,6 @@
 {
   "source": "cridex.vmem (Volatility Foundation labs) + synthetic EVTX-ATTACK-SAMPLES detections",
-  "description": "Cridex banking trojan on Windows XP SP2. Ground truth documented in Volatility community analysis and the EVTX-ATTACK-SAMPLES repository.",
+  "description": "Cridex banking trojan on Windows XP SP2. Ground truth documented in Volatility community analysis, EVTX-ATTACK-SAMPLES repository, and GLASSBOX Sprint 3 validated detections.",
   "references": [
     "https://github.com/volatilityfoundation/volatility/wiki/Memory-Samples",
     "https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES",
@@ -12,14 +12,23 @@
     "T1136.001",
     "T1055",
     "T1071.001",
-    "T1059.001"
+    "T1059.001",
+    "T1027.010",
+    "T1140",
+    "T1036.005",
+    "T1071.004",
+    "T1550.002",
+    "T1110.003"
   ],
   "iocs": [
     "41.168.5.140",
     "125.19.103.198",
     "reader_sl.exe",
     "cridex.exe",
-    "c:\\users\\public\\cridex.exe"
+    "c:\\users\\public\\cridex.exe",
+    "evil-c2.cridex.net",
+    "malware-update.dyndns.org",
+    "http://41.168.5.140/zb/v_01_a/in/"
   ],
   "confirmed_artifacts": [
     "reader_sl.exe",
@@ -29,6 +38,9 @@
     "1484",
     "backdoor",
     "7045",
-    "1102"
+    "1102",
+    "inject.dll",
+    "4648",
+    "4771"
   ]
 }

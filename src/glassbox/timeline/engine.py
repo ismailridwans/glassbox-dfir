@@ -171,7 +171,7 @@ def narrative_summary(events: list[TimelineEvent], *, case_id: str = "") -> str:
             ts_range = f" ({ts_evs[0].ts} → {ts_evs[-1].ts})" if len(ts_evs) > 1 else f" ({ts_evs[0].ts})"
         lines.append(f"**Phase {phase_num}: {label}**{ts_range}")
         for e in evs[:5]:  # cap at 5 per phase for readability
-            conf_tag = "✓" if e.confidence == "CONFIRMED" else "~"
+            conf_tag = "[+]" if e.confidence == "CONFIRMED" else "[~]"
             tech_str = f" [{', '.join(e.technique_ids[:2])}]" if e.technique_ids else ""
             lines.append(f"  {conf_tag} `[{e.tool_exec_id}]` {e.title}{tech_str}")
         if len(evs) > 5:

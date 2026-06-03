@@ -45,7 +45,7 @@ def _dedup_iocs(iocs) -> list:
 
 
 EVIDENCE_PLAN = {
-    EvidenceType.MEMORY: ("memory_analyst", ["mem_pslist", "mem_netscan", "mem_cmdline"]),
+    EvidenceType.MEMORY: ("memory_analyst", ["mem_pslist", "mem_netscan", "mem_cmdline", "yara_scan"]),
     EvidenceType.EVTX:   ("evtx_analyst",   ["evtx_hunt", "evtx_to_json"]),
     EvidenceType.DISK:   ("disk_analyst",   ["disk_partition_table", "disk_list_files", "disk_mft_timeline"]),
     EvidenceType.PCAP:   ("network_analyst", ["pcap_conn_summary", "pcap_dns", "pcap_http"]),
@@ -57,13 +57,20 @@ _DISC_ARTIFACT = {
     "unexpected_parent_process": "process_injection",
     "orphan_connection": "http_c2",
     "memory_only_executable": "process_injection",
+    "temporal_process_network_correlation": "http_c2",
 }
 
 
-def _merge_findings(existing: list[Finding], new: list[Finding]) -> list[Finding]:
+def _merge_findings(existing: list[Finding], new: list[Finding],
+                    iteration: int = 0) -> list[Finding]:
     by_id = {f.finding_id: f for f in existing}
     for f in new:
-        by_id[f.finding_id] = f
+        if f.finding_id not in by_id:
+            if iteration > 0:
+                f.iteration_found = iteration
+            by_id[f.finding_id] = f
+        else:
+            by_id[f.finding_id] = f  # update with refined version
     return list(by_id.values())
 
 
@@ -143,6 +150,7 @@ def collect(state, *, ctx: CaseContext, llm: BaseLLM, seq: Callable[[], int]) ->
     specialist_iocs: list = []
     mem_view = dict(state.get("mem_view", {}))
     disk_view = dict(state.get("disk_view", {}))
+    evtx_view = dict(state.get("evtx_view", {}))
     executed: list[str] = []
     degraded: list[str] = []
     msgs: list[A2AMessage] = []
@@ -156,12 +164,15 @@ def collect(state, *, ctx: CaseContext, llm: BaseLLM, seq: Callable[[], int]) ->
             out = run_memory(ctx.toolkit, evidence, tools, demo_overclaim=bool(state.get("demo_overclaim")))
         else:
             out = SPECIALISTS[agent](ctx.toolkit, evidence, tools)
-        findings = _merge_findings(findings, out["findings"])
+        iteration = int(state.get("iteration", 1))
+        findings = _merge_findings(findings, out["findings"], iteration=iteration)
         specialist_iocs.extend(out.get("iocs", []))
         if agent in ("memory_analyst",):
             mem_view.update(out["view"])
         if agent in ("disk_analyst",):
             disk_view.update(out["view"])
+        if agent in ("evtx_analyst",):
+            evtx_view.update(out["view"])
         executed += out["executed"]
         degraded += out["degraded"]
         _, usage = llm.narrate("You are a DFIR specialist; explain findings briefly.", out["rationale"])
@@ -174,11 +185,15 @@ def collect(state, *, ctx: CaseContext, llm: BaseLLM, seq: Callable[[], int]) ->
                          degraded=out["degraded"], rationale=out["rationale"])
 
     return {"findings": findings, "iocs": specialist_iocs, "mem_view": mem_view,
-            "disk_view": disk_view, "executed": executed, "degraded": degraded, "a2a": msgs}
+            "disk_view": disk_view, "evtx_view": evtx_view,
+            "executed": executed, "degraded": degraded, "a2a": msgs}
 
 
 def correlate(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
-    mv = state.get("mem_view", {})
+    # Merge all specialist views so credential/lateral detectors can see evtx_events from EVTX analyst
+    mv = dict(state.get("mem_view", {}))
+    ev = state.get("evtx_view", {})  # populated by evtx specialists
+    mv.update({k: v for k, v in ev.items() if k not in mv})
     dv = state.get("disk_view", {})
     mem = MemoryView(
         pslist=mv.get("pslist", []), psscan=mv.get("psscan", []), netscan=mv.get("netscan", []),
@@ -187,6 +202,15 @@ def correlate(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
     )
     disk = DiskView(image_names=dv.get("image_names", []), listing_exec_id=dv.get("listing_exec_id")) if dv else None
     discrepancies = correlate_disk_memory(mem, disk)
+
+    # Temporal correlation: process create-time vs. network connection
+    if mv.get("pslist") and mv.get("netscan") and mv.get("pslist_exec_id") and mv.get("netscan_exec_id"):
+        from glassbox.correlate.temporal import temporal_process_network_correlation
+        temporal_disc = temporal_process_network_correlation(
+            mv["pslist"], mv["netscan"],
+            mv["pslist_exec_id"], mv["netscan_exec_id"],
+        )
+        discrepancies = list(discrepancies) + temporal_disc
 
     # mirror each discrepancy into a verifiable INFERRED finding so it gets
     # ATT&CK enrichment and flows through the same gate.
@@ -210,6 +234,24 @@ def correlate(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
             source_agent="correlation_engine",
         ))
     findings = _merge_findings(list(state.get("findings", [])), mirrors)
+
+    # Credential access + lateral movement detection (cross-specialist)
+    evtx_events = mv.get("evtx_events", [])
+    cmdlines = mv.get("cmdlines", [])
+    evtx_exec_id = mv.get("evtx_to_json_exec_id", "")
+    cmdline_exec_id = mv.get("cmdline_exec_id", "")
+    if evtx_events or cmdlines:
+        from glassbox.detect import detect_credential_access, detect_lateral_movement
+        cred_findings = detect_credential_access(
+            evtx_events, cmdlines, evtx_exec_id or "unknown", cmdline_exec_id or "unknown"
+        )
+        lateral_findings = detect_lateral_movement(
+            evtx_events, cmdlines, evtx_exec_id or "unknown", cmdline_exec_id or "unknown"
+        )
+        findings = _merge_findings(findings, cred_findings + lateral_findings)
+        ctx.audit.append("detection_modules",
+                         credential=len(cred_findings), lateral=len(lateral_findings))
+
     ctx.audit.append("correlation", n_discrepancies=len(discrepancies),
                      kinds=[d.kind for d in discrepancies])
     msg = A2AMessage(seq=seq(), from_agent="correlation_engine", to_agent="orchestrator",
@@ -284,6 +326,14 @@ def critique(state, *, ctx: CaseContext, llm: BaseLLM, seq: Callable[[], int]) -
                 and ("mem_svcscan", mem) not in ran_pairs:
             gaps.append({"tool": "mem_svcscan", "evidence": mem, "agent": "memory_analyst",
                          "reason": "corroborate service-install events against in-memory services"})
+        # injection/malfind found -> DLL list for each suspicious process
+        if ext_or_inj and ("mem_dlllist", mem) not in ran_pairs:
+            gaps.append({"tool": "mem_dlllist", "evidence": mem, "agent": "memory_analyst",
+                         "reason": "enumerate loaded DLLs to identify injection vehicles"})
+        # pstree not yet run
+        if ext_or_inj and ("mem_pstree", mem) not in ran_pairs:
+            gaps.append({"tool": "mem_pstree", "evidence": mem, "agent": "memory_analyst",
+                         "reason": "build process tree to surface suspicious parent-child chains"})
 
     # Graceful degradation -> try a pure-Python fallback for EVTX
     if "evtx_to_json" in {d for d in state.get("degraded", [])}:

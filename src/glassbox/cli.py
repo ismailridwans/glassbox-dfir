@@ -45,15 +45,17 @@ def cmd_triage(args):
     from glassbox.orchestrator import run_triage
     rep = run_triage(ctx, demo_overclaim=args.demo_overclaim, write=True)
     paths_msg = f"  Reports in: {ctx.config.reports_dir}"
-    print(f"\n[GLASSBOX] Triage complete — {rep.iterations_used} iteration(s)")
+    print(f"\n[GLASSBOX] Triage complete - {rep.iterations_used} iteration(s)")
     print(f"  Reportable findings : {len(rep.findings)}")
     print(f"  Confirmed           : {len(rep.confirmed())}")
     print(f"  Inferred            : {len(rep.inferred())}")
     print(f"  Quarantined (hallu) : {len(rep.quarantined)}")
     print(f"  Discrepancies       : {len(rep.discrepancies)}")
     print(f"  IOCs                : {len(rep.iocs)}")
-    print(f"  Audit chain valid   : {'YES' if rep.audit_chain_valid else 'NO ⚠'}")
-    print(f"  Spoliation detected : {'YES ⚠' if any(not r.unchanged for r in rep.integrity) else 'NO'}")
+    print(f"  ATT&CK techniques   : {len(rep.attack_coverage)}")
+    print(f"  Timeline events     : {len(rep.timeline)}")
+    print(f"  Audit chain valid   : {'YES' if rep.audit_chain_valid else 'NO [!!]'}")
+    print(f"  Spoliation detected : {'YES [!!]' if any(not r.unchanged for r in rep.integrity) else 'NO'}")
     print(paths_msg)
 
 
@@ -62,9 +64,9 @@ def cmd_verify_audit(args):
     path = Path(args.audit_log)
     ok, errors = AuditChain.verify(path)
     if ok:
-        print(f"✅ Audit chain VALID: {path}")
+        print(f"[OK] Audit chain VALID: {path}")
     else:
-        print(f"❌ Audit chain INVALID: {path}")
+        print(f"[!!] Audit chain INVALID: {path}")
         for e in errors:
             print(f"   {e}")
     sys.exit(0 if ok else 1)
@@ -77,10 +79,10 @@ def cmd_check_spoliation(args):
     result = write_probe(vault)
     _print_json(result)
     if result["spoliation_possible"]:
-        print("\n⚠  SPOLIATION POSSIBLE — some evidence files could be opened for write.")
+        print("\n[!!] SPOLIATION POSSIBLE - some evidence files could be opened for write.")
         sys.exit(1)
     else:
-        print(f"\n✅  All {result['files_tested']} write attempts blocked — evidence integrity holds.")
+        print(f"\n[OK] All {result['files_tested']} write attempts blocked - evidence integrity holds.")
 
 
 def cmd_benchmark(args):
@@ -130,12 +132,17 @@ def cmd_demo(args):
         from glassbox.orchestrator import run_triage
         rep = run_triage(ctx, demo_overclaim=True, write=True)
 
-        print(f"\n[GLASSBOX DEMO] Complete — {rep.iterations_used} iteration(s)")
+        print(f"\n[GLASSBOX DEMO] Complete - {rep.iterations_used} iteration(s)")
         print(f"  Confirmed findings  : {len(rep.confirmed())}")
         print(f"  Inferred findings   : {len(rep.inferred())}")
         print(f"  Quarantined (hallu) : {len(rep.quarantined)}")
         print(f"  Discrepancies       : {len(rep.discrepancies)}")
-        print(f"  Audit chain valid   : {'YES' if rep.audit_chain_valid else 'NO ⚠'}")
+        print(f"  IOCs extracted      : {len(rep.iocs)}")
+        print(f"  ATT&CK techniques   : {len(rep.attack_coverage)}")
+        print(f"  Timeline events     : {len(rep.timeline)}")
+        print(f"  Evidence types      : {', '.join(e.value for e in rep.evidence_types)}")
+        print(f"  Audit chain valid   : {'YES' if rep.audit_chain_valid else 'NO [!!]'}")
+        print(f"  Spoliation detected : {'YES [!!]' if any(not r.unchanged for r in rep.integrity) else 'NO'}")
         if rep.quarantined:
             print(f"\n  [SELF-CORRECTION SEQUENCE]")
             print(f"  The following claim was quarantined as unsupported:")

@@ -190,9 +190,20 @@ def detect_orphan_connections(mem: MemoryView) -> list[Discrepancy]:
     return out
 
 
+# Windows system processes that legitimately run from memory but may not
+# appear in a partial disk listing (excluded from memory-only detection).
+_WINDOWS_SYSTEM_PROCS = {
+    "system", "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe",
+    "services.exe", "lsass.exe", "lsm.exe", "svchost.exe", "spoolsv.exe",
+    "taskhost.exe", "taskhostw.exe", "dwm.exe", "explorer.exe",
+    "wuauclt.exe", "searchindexer.exe", "msiexec.exe", "regsvr32.exe",
+    "dllhost.exe", "conhost.exe", "audiodg.exe", "werfault.exe",
+}
+
+
 def detect_memory_only_executables(mem: MemoryView, disk: DiskView) -> list[Discrepancy]:
     """Running images (from memory) that have no corresponding file on disk —
-    fileless / injected / process-hollowed code."""
+    fileless / injected / process-hollowed code. System processes are excluded."""
     out: list[Discrepancy] = []
     if not disk.image_names or disk.listing_exec_id is None:
         return out
@@ -206,6 +217,9 @@ def detect_memory_only_executables(mem: MemoryView, disk: DiskView) -> list[Disc
         if not name or name in seen:
             continue
         seen.add(name)
+        # Skip well-known system processes — absence from disk listing is expected
+        if name in _WINDOWS_SYSTEM_PROCS:
+            continue
         if name not in on_disk:
             out.append(
                 Discrepancy(

@@ -102,7 +102,8 @@ def render_markdown(rep: TriageReport, a2a: list[Any] | None = None) -> str:
         cite = _citation(f.provenance)
         a(f"### {icon} {_md_escape(f.title)}")
         a(f"")
-        a(f"- **Severity:** {f.severity.value}  **Confidence:** {conf}  {cite}")
+        score_str = f"  Score: {f.confidence_score:.2f}" if f.confidence_score > 0 else ""
+        a(f"- **Severity:** {f.severity.value}  **Confidence:** {conf}{score_str}  {cite}")
         if f.evidence_type:
             a(f"- **Evidence type:** {f.evidence_type.value}")
         if f.observed_at:

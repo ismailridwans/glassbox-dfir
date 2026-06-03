@@ -1,0 +1,4 @@
+Cridex_C2_URL_Pattern /evidence/cridex.vmem
+Cridex_Reader_SL_Masquerade /evidence/cridex.vmem
+Generic_PE_In_RWX_Region /evidence/cridex.vmem
+Powershell_Encoded_Command /evidence/cridex.vmem

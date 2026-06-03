@@ -16,5 +16,23 @@
     "MapDescription": "Security audit log was cleared",
     "PayloadData1": "SubjectUserName: SYSTEM",
     "UserName": "SYSTEM"
+  },
+  {
+    "EventId": 4648,
+    "TimeCreated": "2012-07-22T02:43:45Z",
+    "Computer": "VICTIM-PC",
+    "Channel": "Security",
+    "MapDescription": "A logon was attempted using explicit credentials",
+    "PayloadData1": "SubjectUserName: VICTIM-PC$, TargetUserName: Administrator, TargetServerName: 172.16.112.1",
+    "UserName": "VICTIM-PC$"
+  },
+  {
+    "EventId": 4771,
+    "TimeCreated": "2012-07-22T02:43:50Z",
+    "Computer": "VICTIM-PC",
+    "Channel": "Security",
+    "MapDescription": "Kerberos pre-authentication failed",
+    "PayloadData1": "AccountName: Administrator, FailureCode: 0x18 (wrong password), ClientAddress: ::1",
+    "UserName": "Administrator"
   }
 ]

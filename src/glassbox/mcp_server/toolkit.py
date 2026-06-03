@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from glassbox.evidence.vault import EvidenceVault, VaultError
 from glassbox.ioc.extract import extract_iocs
 from glassbox.mcp_server import parsers
+from glassbox.mcp_server.parsers_extra import parse_dlllist, parse_regripper_output, parse_yara_output
 from glassbox.mcp_server.runner import ToolRunner
 from glassbox.models import IOC, Provenance, ToolExecution, ToolStatus
 from glassbox.util import sha256_file
@@ -169,6 +170,62 @@ class ReadOnlyToolKit:
         return self._vol(evidence, "windows.svcscan", parsers.normalize_svcscan,
                          tool="mem_svcscan", agent=agent)
 
+    def mem_dlllist(self, evidence: str, pid: Optional[int] = None,
+                    agent: str = "memory_analyst") -> ToolResult:
+        """Enumerate loaded DLLs per process (windows.dlllist). Read-only.
+
+        Args:
+            evidence: memory image path inside the vault.
+            pid: optional PID filter; omit to list all processes.
+        """
+        plugin = "windows.dlllist"
+        argv = [*self.runner.tool_paths.argv("vol"), "-q", "-r", "json", "-f", "{EV}", plugin]
+        if pid is not None:
+            argv += ["--pid", str(pid)]
+        return self._run(tool="mem_dlllist", argv=argv, parser=parse_dlllist,
+                         evidence=evidence, agent=agent,
+                         replay_key="mem_dlllist" if self.replay else None)
+
+    # ================================================================== #
+    # YARA (memory and file scanning)
+    # ================================================================== #
+    def yara_scan(self, evidence: str, rules_path: Optional[str] = None,
+                  agent: str = "memory_analyst") -> ToolResult:
+        """Scan a memory image or file against YARA rules. Read-only.
+
+        Args:
+            evidence: path to the evidence file inside the vault.
+            rules_path: path to a .yar file or directory of rules. Defaults to
+                        the bundled GLASSBOX rules in rules/yara/.
+        """
+        if rules_path is None:
+            # Bundled rules relative to package root
+            pkg_root = Path(__file__).parent.parent.parent.parent
+            rp = pkg_root / "rules" / "yara"
+            if not rp.exists():
+                rp = Path("rules") / "yara"
+            rules_path = str(rp)
+        argv = [*self.runner.tool_paths.argv("yara"), "-r", rules_path, "{EV}"]
+        return self._run(tool="yara_scan", argv=argv, parser=parse_yara_output,
+                         evidence=evidence, agent=agent,
+                         replay_key="yara_scan" if self.replay else None)
+
+    # ================================================================== #
+    # REGISTRY (RegRipper)
+    # ================================================================== #
+    def registry_analyze(self, evidence: str, plugin: str = "all",
+                         agent: str = "disk_analyst") -> ToolResult:
+        """Run RegRipper against a registry hive. Read-only.
+
+        Args:
+            evidence: path to the registry hive file (NTUSER.DAT, SYSTEM, etc.) inside the vault.
+            plugin: RegRipper plugin name (e.g. 'run', 'services', 'all').
+        """
+        argv = [*self.runner.tool_paths.argv("regripper"), "-r", "{EV}", "-p", plugin]
+        return self._run(tool="registry_analyze", argv=argv, parser=parse_regripper_output,
+                         evidence=evidence, agent=agent,
+                         replay_key=f"registry_analyze_{plugin}" if self.replay else None)
+
     # ================================================================== #
     # DISK (The Sleuth Kit)
     # ================================================================== #
@@ -316,9 +373,19 @@ class ReadOnlyToolKit:
     # ------------------------------------------------------------------ #
     def list_tools(self) -> list[str]:
         return [
+            # Memory (Volatility 3)
             "mem_pslist", "mem_pstree", "mem_psscan", "mem_netscan", "mem_malfind",
-            "mem_cmdline", "mem_svcscan", "disk_partition_table", "disk_list_files",
-            "disk_mft_timeline", "evtx_hunt", "evtx_to_json", "evtx_dump_xml",
-            "pcap_conn_summary", "pcap_dns", "pcap_http", "evidence_manifest",
-            "hash_verify", "ioc_extract", "attack_map",
+            "mem_cmdline", "mem_svcscan", "mem_dlllist",
+            # YARA
+            "yara_scan",
+            # Disk (Sleuth Kit)
+            "disk_partition_table", "disk_list_files", "disk_mft_timeline",
+            # Registry (RegRipper)
+            "registry_analyze",
+            # EVTX
+            "evtx_hunt", "evtx_to_json", "evtx_dump_xml",
+            # Network (tshark)
+            "pcap_conn_summary", "pcap_dns", "pcap_http",
+            # Meta
+            "evidence_manifest", "hash_verify", "ioc_extract", "attack_map",
         ]

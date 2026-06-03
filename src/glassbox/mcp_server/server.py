@@ -82,6 +82,26 @@ def mem_svcscan(evidence: str) -> ToolResult:
     return _kit().mem_svcscan(evidence)
 
 
+@mcp.tool()
+def mem_dlllist(evidence: str, pid: Optional[int] = None) -> ToolResult:
+    """Enumerate loaded DLLs per process (windows.dlllist). Surfaces unmapped/injected DLLs. Read-only."""
+    return _kit().mem_dlllist(evidence, pid=pid)
+
+
+# --- YARA ------------------------------------------------------------------ #
+@mcp.tool()
+def yara_scan(evidence: str, rules_path: Optional[str] = None) -> ToolResult:
+    """Scan memory image or file against YARA rules (bundled Cridex/Stuxnet/generic rules). Read-only."""
+    return _kit().yara_scan(evidence, rules_path=rules_path)
+
+
+# --- registry -------------------------------------------------------------- #
+@mcp.tool()
+def registry_analyze(evidence: str, plugin: str = "all") -> ToolResult:
+    """Analyze a registry hive with RegRipper (Run keys, services, UserAssist, etc.). Read-only."""
+    return _kit().registry_analyze(evidence, plugin=plugin)
+
+
 # --- disk ------------------------------------------------------------------ #
 @mcp.tool()
 def disk_partition_table(evidence: str) -> ToolResult:

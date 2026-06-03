@@ -29,6 +29,7 @@ class GraphState(TypedDict, total=False):
 
     mem_view: dict[str, Any]
     disk_view: dict[str, Any]
+    evtx_view: dict[str, Any]
 
     gaps: list[str]
     verification: dict[str, Any]

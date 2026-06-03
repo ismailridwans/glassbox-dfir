@@ -1,0 +1,8 @@
+[
+  {"PID": 1484, "BaseDllName": "ntdll.dll",       "Base": "0x7c900000", "FullDllName": "C:\\WINDOWS\\System32\\ntdll.dll"},
+  {"PID": 1484, "BaseDllName": "kernel32.dll",    "Base": "0x7c800000", "FullDllName": "C:\\WINDOWS\\System32\\kernel32.dll"},
+  {"PID": 1484, "BaseDllName": "UNKNOWN",          "Base": "0x03d70000", "FullDllName": ""},
+  {"PID": 1640, "BaseDllName": "ntdll.dll",       "Base": "0x7c900000", "FullDllName": "C:\\WINDOWS\\System32\\ntdll.dll"},
+  {"PID": 1640, "BaseDllName": "inject.dll",      "Base": "0x00230000", "FullDllName": "C:\\Users\\Public\\inject.dll"},
+  {"PID": 1640, "BaseDllName": "UNKNOWN",          "Base": "0x10000000", "FullDllName": ""}
+]
