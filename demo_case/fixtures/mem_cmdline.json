@@ -1,0 +1,4 @@
+[
+  {"PID": 1640, "Process": "reader_sl.exe", "Args": "reader_sl.exe -enc UABvAHcAZQByAFMAaABlAGwAbAAgAC0ATgBvAFAAcgBvAGYAaQBsAGUA"},
+  {"PID": 1484, "Process": "explorer.exe",  "Args": "C:\\Windows\\Explorer.EXE"}
+]

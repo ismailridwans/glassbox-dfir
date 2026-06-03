@@ -1,0 +1,35 @@
+[
+  {
+    "Timestamp":  "2012-07-22T02:43:01.000Z",
+    "Computer":   "VICTIM-PC",
+    "Channel":    "System",
+    "EventID":    7045,
+    "Level":      "high",
+    "RuleTitle":  "New Service Installed",
+    "Details":    "ServiceName=Cridex; ImagePath=C:\\Users\\Public\\cridex.exe",
+    "MitreTactics":"Persistence",
+    "MitreTags":  "attack.t1543.003 attack.persistence"
+  },
+  {
+    "Timestamp":  "2012-07-22T02:44:12.000Z",
+    "Computer":   "VICTIM-PC",
+    "Channel":    "Security",
+    "EventID":    1102,
+    "Level":      "high",
+    "RuleTitle":  "Security Event Log Cleared",
+    "Details":    "SubjectUserName=SYSTEM",
+    "MitreTactics":"Defense Evasion",
+    "MitreTags":  "attack.t1070.001 attack.defense_evasion"
+  },
+  {
+    "Timestamp":  "2012-07-22T02:43:55.000Z",
+    "Computer":   "VICTIM-PC",
+    "Channel":    "Security",
+    "EventID":    4720,
+    "Level":      "medium",
+    "RuleTitle":  "Local Account Created",
+    "Details":    "TargetUserName=backdoor; SubjectUserName=SYSTEM",
+    "MitreTactics":"Persistence",
+    "MitreTags":  "attack.t1136.001"
+  }
+]

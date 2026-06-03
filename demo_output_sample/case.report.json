@@ -1,0 +1,820 @@
+{
+  "case_id": "case",
+  "generated_at": "2026-06-03T14:36:40.297621Z",
+  "glassbox_version": "0.1.0",
+  "summary": "12 reportable finding(s) across 2 evidence type(s); 3 cross-source discrepancy(ies); 1 claim(s) quarantined as unsupported.",
+  "evidence_types": [
+    "evtx",
+    "memory",
+    "unknown"
+  ],
+  "findings": [
+    {
+      "finding_id": "F-5d09922789",
+      "title": "External network connection to 41.168.5.140:8080",
+      "description": "Memory shows process 'explorer.exe' connected to external 41.168.5.140:8080 (TCP ESTABLISHED).",
+      "evidence_type": "memory",
+      "host": null,
+      "observed_at": null,
+      "severity": "HIGH",
+      "confidence": "CONFIRMED",
+      "attack": [
+        {
+          "technique_id": "T1071.001",
+          "technique_name": "Application Layer Protocol: Web Protocols",
+          "tactic_ids": [
+            "TA0011"
+          ],
+          "tactic_names": [
+            "Command and Control"
+          ],
+          "source": "artifact:http_c2",
+          "confidence": "INFERRED"
+        }
+      ],
+      "iocs": [
+        {
+          "type": "ipv4",
+          "value": "41.168.5.140",
+          "defanged": "41[.]168[.]5[.]140",
+          "context": "memory netscan foreign address",
+          "provenance": [
+            {
+              "tool_exec_id": "TE0002-mem_netscan",
+              "tool": "mem_netscan",
+              "evidence_sha256": null,
+              "raw_locator": "41.168.5.140",
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "cited_values": [
+        "41.168.5.140"
+      ],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0002-mem_netscan",
+          "tool": "mem_netscan",
+          "evidence_sha256": null,
+          "raw_locator": "41.168.5.140",
+          "note": ""
+        }
+      ],
+      "source_agent": "memory_analyst",
+      "verifier_note": "all 1 cited locator(s) present in captured output"
+    },
+    {
+      "finding_id": "F-0a06b61ae4",
+      "title": "External network connection to 125.19.103.198:8080",
+      "description": "Memory shows process 'explorer.exe' connected to external 125.19.103.198:8080 (TCP ESTABLISHED).",
+      "evidence_type": "memory",
+      "host": null,
+      "observed_at": null,
+      "severity": "HIGH",
+      "confidence": "CONFIRMED",
+      "attack": [
+        {
+          "technique_id": "T1071.001",
+          "technique_name": "Application Layer Protocol: Web Protocols",
+          "tactic_ids": [
+            "TA0011"
+          ],
+          "tactic_names": [
+            "Command and Control"
+          ],
+          "source": "artifact:http_c2",
+          "confidence": "INFERRED"
+        }
+      ],
+      "iocs": [
+        {
+          "type": "ipv4",
+          "value": "125.19.103.198",
+          "defanged": "125[.]19[.]103[.]198",
+          "context": "memory netscan foreign address",
+          "provenance": [
+            {
+              "tool_exec_id": "TE0002-mem_netscan",
+              "tool": "mem_netscan",
+              "evidence_sha256": null,
+              "raw_locator": "125.19.103.198",
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "cited_values": [
+        "125.19.103.198"
+      ],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0002-mem_netscan",
+          "tool": "mem_netscan",
+          "evidence_sha256": null,
+          "raw_locator": "125.19.103.198",
+          "note": ""
+        }
+      ],
+      "source_agent": "memory_analyst",
+      "verifier_note": "all 1 cited locator(s) present in captured output"
+    },
+    {
+      "finding_id": "F-64481a894f",
+      "title": "Suspicious command line in PID 1640 (reader_sl.exe)",
+      "description": "Command line contains '-enc' (obfuscated/encoded execution): reader_sl.exe -enc UABvAHcAZQByAFMAaABlAGwAbAAgAC0ATgBvAFAAcgBvAGYAaQBsAGUA",
+      "evidence_type": "memory",
+      "host": null,
+      "observed_at": null,
+      "severity": "HIGH",
+      "confidence": "CONFIRMED",
+      "attack": [
+        {
+          "technique_id": "T1059.001",
+          "technique_name": "Command and Scripting Interpreter: PowerShell",
+          "tactic_ids": [
+            "TA0002"
+          ],
+          "tactic_names": [
+            "Execution"
+          ],
+          "source": "artifact:powershell_encoded",
+          "confidence": "INFERRED"
+        },
+        {
+          "technique_id": "T1027.010",
+          "technique_name": "Obfuscated Files or Information: Command Obfuscation",
+          "tactic_ids": [
+            "TA0005"
+          ],
+          "tactic_names": [
+            "Defense Evasion"
+          ],
+          "source": "artifact:powershell_encoded",
+          "confidence": "INFERRED"
+        },
+        {
+          "technique_id": "T1140",
+          "technique_name": "Deobfuscate/Decode Files or Information",
+          "tactic_ids": [
+            "TA0005"
+          ],
+          "tactic_names": [
+            "Defense Evasion"
+          ],
+          "source": "artifact:powershell_encoded",
+          "confidence": "INFERRED"
+        }
+      ],
+      "iocs": [],
+      "cited_values": [
+        "-enc"
+      ],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0003-mem_cmdline",
+          "tool": "mem_cmdline",
+          "evidence_sha256": null,
+          "raw_locator": "-enc",
+          "note": ""
+        }
+      ],
+      "source_agent": "memory_analyst",
+      "verifier_note": "all 1 cited locator(s) present in captured output"
+    },
+    {
+      "finding_id": "F-083665ed7f",
+      "title": "EVTX detection: New Service Installed",
+      "description": "Hayabusa/Sigma matched on VICTIM-PC (EventID 7045, Persistence). ServiceName=Cridex; ImagePath=C:\\Users\\Public\\cridex.exe",
+      "evidence_type": "evtx",
+      "host": null,
+      "observed_at": "2012-07-22T02:43:01.000Z",
+      "severity": "HIGH",
+      "confidence": "CONFIRMED",
+      "attack": [
+        {
+          "technique_id": "T1543.003",
+          "technique_name": "Create or Modify System Process: Windows Service",
+          "tactic_ids": [
+            "TA0003",
+            "TA0004"
+          ],
+          "tactic_names": [
+            "Persistence",
+            "Privilege Escalation"
+          ],
+          "source": "eventid:7045",
+          "confidence": "INFERRED"
+        }
+      ],
+      "iocs": [],
+      "cited_values": [
+        "New Service Installed"
+      ],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0004-evtx_hunt",
+          "tool": "evtx_hunt",
+          "evidence_sha256": null,
+          "raw_locator": "New Service Installed",
+          "note": ""
+        }
+      ],
+      "source_agent": "evtx_analyst",
+      "verifier_note": "all 1 cited locator(s) present in captured output"
+    },
+    {
+      "finding_id": "F-fcd9e7f2a8",
+      "title": "EVTX detection: Security Event Log Cleared",
+      "description": "Hayabusa/Sigma matched on VICTIM-PC (EventID 1102, Defense Evasion). SubjectUserName=SYSTEM",
+      "evidence_type": "evtx",
+      "host": null,
+      "observed_at": "2012-07-22T02:44:12.000Z",
+      "severity": "HIGH",
+      "confidence": "CONFIRMED",
+      "attack": [
+        {
+          "technique_id": "T1070.001",
+          "technique_name": "Indicator Removal: Clear Windows Event Logs",
+          "tactic_ids": [
+            "TA0005"
+          ],
+          "tactic_names": [
+            "Defense Evasion"
+          ],
+          "source": "eventid:1102",
+          "confidence": "INFERRED"
+        }
+      ],
+      "iocs": [],
+      "cited_values": [
+        "Security Event Log Cleared"
+      ],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0004-evtx_hunt",
+          "tool": "evtx_hunt",
+          "evidence_sha256": null,
+          "raw_locator": "Security Event Log Cleared",
+          "note": ""
+        }
+      ],
+      "source_agent": "evtx_analyst",
+      "verifier_note": "all 1 cited locator(s) present in captured output"
+    },
+    {
+      "finding_id": "F-7e505af1ec",
+      "title": "EVTX detection: Local Account Created",
+      "description": "Hayabusa/Sigma matched on VICTIM-PC (EventID 4720, Persistence). TargetUserName=backdoor; SubjectUserName=SYSTEM",
+      "evidence_type": "evtx",
+      "host": null,
+      "observed_at": "2012-07-22T02:43:55.000Z",
+      "severity": "MEDIUM",
+      "confidence": "CONFIRMED",
+      "attack": [
+        {
+          "technique_id": "T1136.001",
+          "technique_name": "Create Account: Local Account",
+          "tactic_ids": [
+            "TA0003"
+          ],
+          "tactic_names": [
+            "Persistence"
+          ],
+          "source": "eventid:4720",
+          "confidence": "INFERRED"
+        }
+      ],
+      "iocs": [],
+      "cited_values": [
+        "Local Account Created"
+      ],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0004-evtx_hunt",
+          "tool": "evtx_hunt",
+          "evidence_sha256": null,
+          "raw_locator": "Local Account Created",
+          "note": ""
+        }
+      ],
+      "source_agent": "evtx_analyst",
+      "verifier_note": "all 1 cited locator(s) present in captured output"
+    },
+    {
+      "finding_id": "F-bee3fde8f1",
+      "title": "Injected/RWX code in PID 1484 (explorer.exe)",
+      "description": "malfind flagged executable private memory (PAGE_EXECUTE_READWRITE) in PID 1484 'explorer.exe' — consistent with code injection.",
+      "evidence_type": "memory",
+      "host": null,
+      "observed_at": null,
+      "severity": "HIGH",
+      "confidence": "CONFIRMED",
+      "attack": [
+        {
+          "technique_id": "T1055",
+          "technique_name": "Process Injection",
+          "tactic_ids": [
+            "TA0005",
+            "TA0004"
+          ],
+          "tactic_names": [
+            "Defense Evasion",
+            "Privilege Escalation"
+          ],
+          "source": "artifact:process_injection",
+          "confidence": "INFERRED"
+        }
+      ],
+      "iocs": [],
+      "cited_values": [
+        "1484"
+      ],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0006-mem_malfind",
+          "tool": "mem_malfind",
+          "evidence_sha256": null,
+          "raw_locator": "1484",
+          "note": ""
+        }
+      ],
+      "source_agent": "memory_analyst",
+      "verifier_note": "all 1 cited locator(s) present in captured output"
+    },
+    {
+      "finding_id": "F-2264ef3300",
+      "title": "Injected/RWX code in PID 1640 (reader_sl.exe)",
+      "description": "malfind flagged executable private memory (PAGE_EXECUTE_READWRITE) in PID 1640 'reader_sl.exe' — consistent with code injection.",
+      "evidence_type": "memory",
+      "host": null,
+      "observed_at": null,
+      "severity": "HIGH",
+      "confidence": "CONFIRMED",
+      "attack": [
+        {
+          "technique_id": "T1055",
+          "technique_name": "Process Injection",
+          "tactic_ids": [
+            "TA0005",
+            "TA0004"
+          ],
+          "tactic_names": [
+            "Defense Evasion",
+            "Privilege Escalation"
+          ],
+          "source": "artifact:process_injection",
+          "confidence": "INFERRED"
+        }
+      ],
+      "iocs": [],
+      "cited_values": [
+        "1640"
+      ],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0006-mem_malfind",
+          "tool": "mem_malfind",
+          "evidence_sha256": null,
+          "raw_locator": "1640",
+          "note": ""
+        }
+      ],
+      "source_agent": "memory_analyst",
+      "verifier_note": "all 1 cited locator(s) present in captured output"
+    },
+    {
+      "finding_id": "F-e47b30cea7",
+      "title": "Suspicious service 'Cridex'",
+      "description": "Service binary path looks non-standard: C:\\Users\\Public\\cridex.exe",
+      "evidence_type": "memory",
+      "host": null,
+      "observed_at": null,
+      "severity": "MEDIUM",
+      "confidence": "CONFIRMED",
+      "attack": [
+        {
+          "technique_id": "T1543.003",
+          "technique_name": "Create or Modify System Process: Windows Service",
+          "tactic_ids": [
+            "TA0003",
+            "TA0004"
+          ],
+          "tactic_names": [
+            "Persistence",
+            "Privilege Escalation"
+          ],
+          "source": "artifact:service_install",
+          "confidence": "INFERRED"
+        }
+      ],
+      "iocs": [],
+      "cited_values": [
+        "Cridex"
+      ],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0007-mem_svcscan",
+          "tool": "mem_svcscan",
+          "evidence_sha256": null,
+          "raw_locator": "Cridex",
+          "note": ""
+        }
+      ],
+      "source_agent": "memory_analyst",
+      "verifier_note": "all 1 cited locator(s) present in captured output"
+    },
+    {
+      "finding_id": "F-X-768d7d25dd",
+      "title": "Process 'wuauclt",
+      "description": "Process 'wuauclt.exe' (PID 1896) was found by the pool scanner (psscan) but is ABSENT from the active process list (pslist). Consistent with process hiding/unlinking or recent termination.",
+      "evidence_type": "memory",
+      "host": null,
+      "observed_at": null,
+      "severity": "HIGH",
+      "confidence": "INFERRED",
+      "attack": [
+        {
+          "technique_id": "T1055",
+          "technique_name": "Process Injection",
+          "tactic_ids": [
+            "TA0005",
+            "TA0004"
+          ],
+          "tactic_names": [
+            "Defense Evasion",
+            "Privilege Escalation"
+          ],
+          "source": "artifact:process_injection",
+          "confidence": "INFERRED"
+        }
+      ],
+      "iocs": [],
+      "cited_values": [
+        "1896"
+      ],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0005-mem_psscan",
+          "tool": "mem_psscan",
+          "evidence_sha256": null,
+          "raw_locator": "1896",
+          "note": "PID 1896 (wuauclt.exe) present in psscan output"
+        }
+      ],
+      "source_agent": "correlation_engine",
+      "verifier_note": "all 1 cited locator(s) present in captured output"
+    },
+    {
+      "finding_id": "F-X-0a3dbbae03",
+      "title": "Process 'svchost",
+      "description": "Process 'svchost.exe' (PID 788) was found by the pool scanner (psscan) but is ABSENT from the active process list (pslist). Consistent with process hiding/unlinking or recent termination.",
+      "evidence_type": "memory",
+      "host": null,
+      "observed_at": null,
+      "severity": "HIGH",
+      "confidence": "INFERRED",
+      "attack": [
+        {
+          "technique_id": "T1055",
+          "technique_name": "Process Injection",
+          "tactic_ids": [
+            "TA0005",
+            "TA0004"
+          ],
+          "tactic_names": [
+            "Defense Evasion",
+            "Privilege Escalation"
+          ],
+          "source": "artifact:process_injection",
+          "confidence": "INFERRED"
+        }
+      ],
+      "iocs": [],
+      "cited_values": [
+        "788"
+      ],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0005-mem_psscan",
+          "tool": "mem_psscan",
+          "evidence_sha256": null,
+          "raw_locator": "788",
+          "note": "PID 788 (svchost.exe) present in psscan output"
+        }
+      ],
+      "source_agent": "correlation_engine",
+      "verifier_note": "all 1 cited locator(s) present in captured output"
+    },
+    {
+      "finding_id": "F-X-70a492c96d",
+      "title": "Process 'HIDDEN_PROC' (PID 1520) was found by the pool scanner (psscan) but is ABSENT from the active process list (pslist)",
+      "description": "Process 'HIDDEN_PROC' (PID 1520) was found by the pool scanner (psscan) but is ABSENT from the active process list (pslist). Consistent with process hiding/unlinking or recent termination.",
+      "evidence_type": "memory",
+      "host": null,
+      "observed_at": null,
+      "severity": "HIGH",
+      "confidence": "INFERRED",
+      "attack": [
+        {
+          "technique_id": "T1055",
+          "technique_name": "Process Injection",
+          "tactic_ids": [
+            "TA0005",
+            "TA0004"
+          ],
+          "tactic_names": [
+            "Defense Evasion",
+            "Privilege Escalation"
+          ],
+          "source": "artifact:process_injection",
+          "confidence": "INFERRED"
+        }
+      ],
+      "iocs": [],
+      "cited_values": [
+        "1520"
+      ],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0005-mem_psscan",
+          "tool": "mem_psscan",
+          "evidence_sha256": null,
+          "raw_locator": "1520",
+          "note": "PID 1520 (HIDDEN_PROC) present in psscan output"
+        }
+      ],
+      "source_agent": "correlation_engine",
+      "verifier_note": "all 1 cited locator(s) present in captured output"
+    }
+  ],
+  "discrepancies": [
+    {
+      "discrepancy_id": "X-768d7d25dd",
+      "kind": "hidden_process",
+      "description": "Process 'wuauclt.exe' (PID 1896) was found by the pool scanner (psscan) but is ABSENT from the active process list (pslist). Consistent with process hiding/unlinking or recent termination.",
+      "sources": [
+        "memory"
+      ],
+      "severity": "HIGH",
+      "related_finding_ids": [],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0005-mem_psscan",
+          "tool": "mem_psscan",
+          "evidence_sha256": null,
+          "raw_locator": "1896",
+          "note": "PID 1896 (wuauclt.exe) present in psscan output"
+        }
+      ],
+      "confidence": "INFERRED"
+    },
+    {
+      "discrepancy_id": "X-0a3dbbae03",
+      "kind": "hidden_process",
+      "description": "Process 'svchost.exe' (PID 788) was found by the pool scanner (psscan) but is ABSENT from the active process list (pslist). Consistent with process hiding/unlinking or recent termination.",
+      "sources": [
+        "memory"
+      ],
+      "severity": "HIGH",
+      "related_finding_ids": [],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0005-mem_psscan",
+          "tool": "mem_psscan",
+          "evidence_sha256": null,
+          "raw_locator": "788",
+          "note": "PID 788 (svchost.exe) present in psscan output"
+        }
+      ],
+      "confidence": "INFERRED"
+    },
+    {
+      "discrepancy_id": "X-70a492c96d",
+      "kind": "hidden_process",
+      "description": "Process 'HIDDEN_PROC' (PID 1520) was found by the pool scanner (psscan) but is ABSENT from the active process list (pslist). Consistent with process hiding/unlinking or recent termination.",
+      "sources": [
+        "memory"
+      ],
+      "severity": "HIGH",
+      "related_finding_ids": [],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0005-mem_psscan",
+          "tool": "mem_psscan",
+          "evidence_sha256": null,
+          "raw_locator": "1520",
+          "note": "PID 1520 (HIDDEN_PROC) present in psscan output"
+        }
+      ],
+      "confidence": "INFERRED"
+    }
+  ],
+  "iocs": [
+    {
+      "type": "ipv4",
+      "value": "41.168.5.140",
+      "defanged": "41[.]168[.]5[.]140",
+      "context": "memory netscan foreign address",
+      "provenance": [
+        {
+          "tool_exec_id": "TE0002-mem_netscan",
+          "tool": "mem_netscan",
+          "evidence_sha256": null,
+          "raw_locator": "41.168.5.140",
+          "note": ""
+        }
+      ]
+    },
+    {
+      "type": "ipv4",
+      "value": "125.19.103.198",
+      "defanged": "125[.]19[.]103[.]198",
+      "context": "memory netscan foreign address",
+      "provenance": [
+        {
+          "tool_exec_id": "TE0002-mem_netscan",
+          "tool": "mem_netscan",
+          "evidence_sha256": null,
+          "raw_locator": "125.19.103.198",
+          "note": ""
+        }
+      ]
+    }
+  ],
+  "attack_coverage": [
+    {
+      "technique_id": "T1071.001",
+      "technique_name": "Application Layer Protocol: Web Protocols",
+      "tactic_ids": [
+        "TA0011"
+      ],
+      "tactic_names": [
+        "Command and Control"
+      ],
+      "source": "artifact:http_c2",
+      "confidence": "INFERRED"
+    },
+    {
+      "technique_id": "T1059.001",
+      "technique_name": "Command and Scripting Interpreter: PowerShell",
+      "tactic_ids": [
+        "TA0002"
+      ],
+      "tactic_names": [
+        "Execution"
+      ],
+      "source": "artifact:powershell_encoded",
+      "confidence": "INFERRED"
+    },
+    {
+      "technique_id": "T1027.010",
+      "technique_name": "Obfuscated Files or Information: Command Obfuscation",
+      "tactic_ids": [
+        "TA0005"
+      ],
+      "tactic_names": [
+        "Defense Evasion"
+      ],
+      "source": "artifact:powershell_encoded",
+      "confidence": "INFERRED"
+    },
+    {
+      "technique_id": "T1140",
+      "technique_name": "Deobfuscate/Decode Files or Information",
+      "tactic_ids": [
+        "TA0005"
+      ],
+      "tactic_names": [
+        "Defense Evasion"
+      ],
+      "source": "artifact:powershell_encoded",
+      "confidence": "INFERRED"
+    },
+    {
+      "technique_id": "T1543.003",
+      "technique_name": "Create or Modify System Process: Windows Service",
+      "tactic_ids": [
+        "TA0003",
+        "TA0004"
+      ],
+      "tactic_names": [
+        "Persistence",
+        "Privilege Escalation"
+      ],
+      "source": "eventid:7045",
+      "confidence": "INFERRED"
+    },
+    {
+      "technique_id": "T1070.001",
+      "technique_name": "Indicator Removal: Clear Windows Event Logs",
+      "tactic_ids": [
+        "TA0005"
+      ],
+      "tactic_names": [
+        "Defense Evasion"
+      ],
+      "source": "eventid:1102",
+      "confidence": "INFERRED"
+    },
+    {
+      "technique_id": "T1136.001",
+      "technique_name": "Create Account: Local Account",
+      "tactic_ids": [
+        "TA0003"
+      ],
+      "tactic_names": [
+        "Persistence"
+      ],
+      "source": "eventid:4720",
+      "confidence": "INFERRED"
+    },
+    {
+      "technique_id": "T1055",
+      "technique_name": "Process Injection",
+      "tactic_ids": [
+        "TA0005",
+        "TA0004"
+      ],
+      "tactic_names": [
+        "Defense Evasion",
+        "Privilege Escalation"
+      ],
+      "source": "artifact:process_injection",
+      "confidence": "INFERRED"
+    }
+  ],
+  "quarantined": [
+    {
+      "finding_id": "F-f685626746",
+      "title": "Assessment: active data exfiltration of ~2.3 GB to C2",
+      "description": "Aggressive analyst assessment that the external channel exfiltrated approximately 2.3 GB. The volume is not supported by any captured tool output and should be quarantined by the verifier.",
+      "evidence_type": "memory",
+      "host": null,
+      "observed_at": null,
+      "severity": "CRITICAL",
+      "confidence": "HALLUCINATED",
+      "attack": [
+        {
+          "technique_id": "T1048",
+          "technique_name": "Exfiltration Over Alternative Protocol",
+          "tactic_ids": [
+            "TA0010"
+          ],
+          "tactic_names": [
+            "Exfiltration"
+          ],
+          "source": "artifact:exfil_network",
+          "confidence": "INFERRED"
+        }
+      ],
+      "iocs": [],
+      "cited_values": [
+        "2.3 GB"
+      ],
+      "provenance": [
+        {
+          "tool_exec_id": "TE0002-mem_netscan",
+          "tool": "mem_netscan",
+          "evidence_sha256": null,
+          "raw_locator": "2.3 GB",
+          "note": ""
+        }
+      ],
+      "source_agent": "memory_analyst",
+      "verifier_note": "locator '2.3 GB' absent from output of TE0002-mem_netscan; cited value '2.3 GB' not found in any cited tool output"
+    }
+  ],
+  "integrity": [
+    {
+      "path": "C:\\Users\\ismai\\AppData\\Local\\Temp\\claude\\glassbox_demo_l7909vqd\\case\\evidence\\.gitkeep",
+      "sha256_before": "d81910acf3d5f2d5671f676aa29f2b88991e738ac777c6b308be1ae1618581fe",
+      "sha256_after": "d81910acf3d5f2d5671f676aa29f2b88991e738ac777c6b308be1ae1618581fe",
+      "bytes": 139,
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\ismai\\AppData\\Local\\Temp\\claude\\glassbox_demo_l7909vqd\\case\\evidence\\cridex.vmem",
+      "sha256_before": "857769df029cc77fa8fac4c4d4b311ad05741e754d0b3c90b1c13cb712200939",
+      "sha256_after": "857769df029cc77fa8fac4c4d4b311ad05741e754d0b3c90b1c13cb712200939",
+      "bytes": 380,
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\ismai\\AppData\\Local\\Temp\\claude\\glassbox_demo_l7909vqd\\case\\evidence\\Security.evtx",
+      "sha256_before": "5e047199bc681a170513afe00b8a5eb6b89bdb4479478f0b66aad22fe0b6fba1",
+      "sha256_after": "5e047199bc681a170513afe00b8a5eb6b89bdb4479478f0b66aad22fe0b6fba1",
+      "bytes": 269,
+      "unchanged": true
+    }
+  ],
+  "iterations_used": 2,
+  "max_iterations": 3,
+  "degraded_tools": [],
+  "total_tokens": {
+    "input_tokens": 0,
+    "output_tokens": 0
+  },
+  "audit_log_ref": "C:\\Users\\ismai\\AppData\\Local\\Temp\\claude\\glassbox_demo_l7909vqd\\case\\case.audit.jsonl",
+  "audit_chain_valid": true
+}

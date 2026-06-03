@@ -1,0 +1,23 @@
+# GLASSBOX case configuration example.
+# Copy to your case directory as glassbox.yaml and edit.
+
+case_id: my-incident-001
+max_iterations: 3
+recursion_limit: 50
+
+# LLM backend:
+#   "heuristic"  — offline, no tokens consumed, deterministic narration (default)
+#   "anthropic"  — requires ANTHROPIC_API_KEY; uses claude-opus-4-8 with prompt caching
+llm_backend: heuristic
+llm_model: claude-opus-4-8
+
+# Tool path overrides (if your SIFT paths differ from defaults)
+# tool_paths:
+#   vol:
+#     - python3
+#     - /opt/volatility3-2.20.0/vol.py
+#   evtxecmd:
+#     - dotnet
+#     - /opt/zimmermantools/EvtxECmd.dll
+#   hayabusa:
+#     - /opt/hayabusa/hayabusa

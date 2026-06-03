@@ -1,0 +1,5 @@
+# GLASSBOX demo case config — offline, no SIFT required
+case_id: demo-cridex-evtx
+max_iterations: 3
+recursion_limit: 50
+llm_backend: heuristic   # change to "anthropic" + set ANTHROPIC_API_KEY for live reasoning

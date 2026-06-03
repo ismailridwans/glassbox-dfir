@@ -1,0 +1,4 @@
+[
+  {"PID": 788,  "Name": "wuauserv", "Display": "Windows Update",    "Binary": "C:\\WINDOWS\\system32\\svchost.exe -k netsvcs", "State": "Running", "Start": "Auto"},
+  {"PID": null, "Name": "Cridex",   "Display": "Cridex Persistence","Binary": "C:\\Users\\Public\\cridex.exe",                 "State": "Stopped","Start": "Auto"}
+]

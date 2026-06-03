@@ -1,0 +1,50 @@
+# GLASSBOX — DFIR triage agent
+# Evidence and case working data must NEVER be committed.
+cases/**/evidence/
+cases/**/raw/
+cases/**/scratch/
+cases/**/reports/
+*.E01
+*.e01
+*.vmem
+*.raw
+*.mem
+*.dd
+*.img
+*.evtx
+*.pcap
+*.pcapng
+# ...except small, license-clear fixtures that are explicitly checked in:
+!tests/fixtures/**
+!benchmark/ground_truth/**
+
+# Audit logs from live runs (samples in docs/samples/ are checked in)
+*.audit.jsonl
+!docs/samples/*.jsonl
+
+# Secrets / credentials
+.env
+*.key
+*.pem
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

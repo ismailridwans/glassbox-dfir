@@ -1,0 +1,2 @@
+# Place evidence files here: *.vmem, *.evtx, *.img, *.pcap
+# For the offline demo, the fixtures/ directory provides synthetic replay data.

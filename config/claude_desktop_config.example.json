@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "glassbox": {
+      "command": "python",
+      "args": ["-m", "glassbox.mcp_server.server"],
+      "env": {
+        "GLASSBOX_CASE": "/cases/incident-001",
+        "GLASSBOX_EVIDENCE": "/cases/incident-001/evidence"
+      }
+    }
+  }
+}

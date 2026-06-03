@@ -1,0 +1,24 @@
+# GLASSBOX runtime dependencies (pinned to versions verified 2026-06-03).
+# The pure-Python core (audit chain, hallucination verifier, ATT&CK mapping,
+# IOC extraction, cross-source correlation, report) runs with ONLY these.
+# The SIFT tool wrappers shell out to binaries already present on the
+# SANS SIFT Workstation (no Python deps needed for those).
+
+# --- Custom MCP Server (the official SDK; NOT the third-party `fastmcp` pkg) ---
+mcp==1.27.2
+
+# --- Orchestration / self-correction state machine ---
+langgraph==1.2.4
+
+# --- Data contracts (pydantic v2; pulled in by mcp anyway, pinned for clarity) ---
+pydantic>=2.7,<3
+
+# --- Config + CLI ---
+PyYAML>=6.0
+
+# --- OPTIONAL: real LLM reasoning backend. The system runs fully offline with
+#     the deterministic HeuristicPlanner backend if this is absent or no API
+#     key is set. Uncomment to enable narrated LLM reasoning.
+# anthropic>=0.40
+
+# --- Dev / test only (see requirements-dev.txt) ---
