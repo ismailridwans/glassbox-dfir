@@ -48,6 +48,25 @@ def _routable(ip: str) -> bool:
         return False
 
 
+def _extract_service(details: str) -> str:
+    """Extract ServiceName from Kerberos event details string."""
+    import re
+    m = re.search(r"ServiceName=([^\s;,]+)", details)
+    return m.group(1) if m else "unknown service"
+
+
+def _harvest_iocs_from_text(text: str, eid_str: str, tool: str, exec_id: str) -> list:
+    """Extract IOCs from an event payload/description string."""
+    from glassbox.ioc.extract import extract_iocs
+    from glassbox.models import Provenance
+    prov = [Provenance(tool_exec_id=exec_id, tool=tool, raw_locator="", note=f"EID {eid_str}")]
+    iocs = extract_iocs(text, context=f"EventID {eid_str}", provenance=prov, include_filepaths=True)
+    for ioc in iocs:
+        for p in ioc.provenance:
+            p.raw_locator = ioc.value
+    return iocs
+
+
 def _prov(exec_id: str, tool: str, locator, note: str = "") -> Provenance:
     return Provenance(tool_exec_id=exec_id, tool=tool, raw_locator=str(locator), note=note)
 
@@ -294,6 +313,100 @@ def run_memory(toolkit, evidence: str, tools: list[str], *, demo_overclaim: bool
                         cited=[str(svc.get("name"))], prov=[_prov(res.tool_exec_id, "mem_svcscan", svc.get("name"))],
                         agent=agent))
             reasons.append(f"svcscan: {s.get('count', 0)} services")
+        elif tool == "mem_psxview":
+            hidden = s.get("hidden", [])
+            for h in hidden:
+                missing = h.get("hidden_from", [])
+                out["findings"].append(_finding(
+                    title=f"[psxview] Process '{h.get('name')}' (PID {h.get('pid')}) hidden from {len(missing)} source(s)",
+                    desc=(f"6-source cross-view (psxview) found PID {h.get('pid')} '{h.get('name')}' "
+                          f"absent from: {', '.join(missing)}. Indicates DKOM rootkit hiding "
+                          f"or deliberate process unlinking."),
+                    evtype=EvidenceType.MEMORY, severity=Severity.CRITICAL,
+                    confidence=Confidence.CONFIRMED, attack=_attack_for("process_hollowing"),
+                    cited=[str(h.get("pid"))],
+                    prov=[_prov(res.tool_exec_id, "mem_psxview", str(h.get("pid")))],
+                    agent=agent))
+            reasons.append(f"psxview: {s.get('count',0)} procs, {s.get('hidden_count',0)} hidden")
+        elif tool == "mem_handles":
+            susp = s.get("suspicious", [])
+            for h in susp:
+                if h["type"] == "File" and "namedpipe" in h["name"].lower().replace("\\", "").replace(" ", ""):
+                    # Use the pipe suffix as locator (avoids backslash JSON-escape mismatch)
+                    pipe_suffix = h["name"].rsplit("\\", 1)[-1] if "\\" in h["name"] else h["name"]
+                    pipe_suffix = pipe_suffix.rsplit("/", 1)[-1]  # fallback for forward slashes
+                    out["findings"].append(_finding(
+                        title=f"Suspicious named pipe in PID {h['pid']} ({h['process']}): {pipe_suffix}",
+                        desc=(f"Process '{h['process']}' (PID {h['pid']}) holds a handle to named pipe "
+                              f"'{h['name']}' matching C2 tool patterns (Cobalt Strike/Metasploit/PsExec). "
+                              f"Pipe name suffix: {pipe_suffix}"),
+                        evtype=EvidenceType.MEMORY, severity=Severity.CRITICAL,
+                        confidence=Confidence.CONFIRMED, attack=_attack_for("http_c2"),
+                        cited=[pipe_suffix],
+                        prov=[_prov(res.tool_exec_id, "mem_handles", pipe_suffix)],
+                        agent=agent))
+                elif h["type"] == "Process" and "0x1410" in h.get("granted_access","").lower():
+                    out["findings"].append(_finding(
+                        title=f"Cross-process PROCESS_VM_READ handle from PID {h['pid']} ({h['process']})",
+                        desc=(f"PID {h['pid']} '{h['process']}' holds a Process handle with "
+                              f"PROCESS_VM_READ+QUERY_INFO (GrantedAccess={h.get('granted_access')}) — "
+                              f"credential dumper pattern."),
+                        evtype=EvidenceType.MEMORY, severity=Severity.CRITICAL,
+                        confidence=Confidence.CONFIRMED, attack=_attack_for("lsass_dump"),
+                        cited=["0x1410"],
+                        prov=[_prov(res.tool_exec_id, "mem_handles", "0x1410")],
+                        agent=agent))
+            reasons.append(f"handles: {s.get('count',0)} total, {s.get('suspicious_count',0)} suspicious")
+        elif tool == "mem_cmdscan":
+            cmds = s.get("commands", [])
+            _SUSP_CMDS = [("net user", "local_account_created", Severity.HIGH, "Backdoor account creation"),
+                          ("net localgroup", "local_account_created", Severity.HIGH, "Privilege group modification"),
+                          ("certutil", "lolbas_certutil", Severity.HIGH, "LOLBAS certutil tool transfer"),
+                          ("reg add", "registry_run_key", Severity.HIGH, "Registry persistence added"),
+                          ("DownloadString", "powershell_suspicious", Severity.HIGH, "PowerShell download cradle"),
+                          ("IEX", "powershell_suspicious", Severity.HIGH, "PowerShell IEX execution"),
+                          ("rar a", "archive_exfil", Severity.HIGH, "Data archived for exfiltration (rar)"),
+                          ("7z a", "archive_exfil", Severity.HIGH, "Data archived for exfiltration (7z)"),
+                          ("compress-archive", "archive_exfil", Severity.HIGH, "Data archived via PowerShell")]
+            for cmd_rec in cmds:
+                cmd = str(cmd_rec.get("command", ""))
+                for pattern, artifact, sev, desc_prefix in _SUSP_CMDS:
+                    if pattern.lower() in cmd.lower():
+                        out["findings"].append(_finding(
+                            title=f"Attacker command history: {desc_prefix}",
+                            desc=f"cmdscan recovered: '{cmd[:160]}'",
+                            evtype=EvidenceType.MEMORY, severity=sev,
+                            confidence=Confidence.CONFIRMED, attack=_attack_for(artifact),
+                            cited=[pattern],
+                            prov=[_prov(res.tool_exec_id, "mem_cmdscan", pattern)],
+                            agent=agent))
+                        break
+            reasons.append(f"cmdscan: {s.get('count',0)} commands recovered")
+        elif tool == "mem_mutantscan":
+            for mut in s.get("suspicious", []):
+                out["findings"].append(_finding(
+                    title=f"Malware mutex fingerprint: '{mut['name']}'",
+                    desc=(f"Named mutex '{mut['name']}' matches known malware family patterns. "
+                          f"Mutexes are hard-coded per malware build to prevent re-infection."),
+                    evtype=EvidenceType.MEMORY, severity=Severity.HIGH,
+                    confidence=Confidence.CONFIRMED, attack=_attack_for("masquerade_rename"),
+                    cited=[mut["name"]],
+                    prov=[_prov(res.tool_exec_id, "mem_mutantscan", mut["name"])],
+                    agent=agent))
+            reasons.append(f"mutantscan: {s.get('count',0)} mutexes, {s.get('suspicious_count',0)} suspicious")
+        elif tool == "mem_mftscan":
+            for rec in s.get("suspicious", []):
+                fname = rec.get("filename", "")
+                out["findings"].append(_finding(
+                    title=f"MFT scan: suspicious executable recovered from memory: {fname.rsplit('/',1)[-1]}",
+                    desc=(f"In-memory MFT record found for '{fname}' (created: {rec.get('created')}). "
+                          f"File may have been deleted from disk but remains in filesystem cache."),
+                    evtype=EvidenceType.MEMORY, severity=Severity.HIGH,
+                    confidence=Confidence.CONFIRMED, attack=_attack_for("masquerade_path"),
+                    cited=[fname.rsplit("/",1)[-1]],
+                    prov=[_prov(res.tool_exec_id, "mem_mftscan", fname.rsplit("/",1)[-1])],
+                    agent=agent))
+            reasons.append(f"mftscan: {s.get('count',0)} records, {s.get('suspicious_count',0)} suspicious")
         elif tool == "mem_dlllist":
             _BAD_DLL_NAMES = {"inject.dll", "hook.dll", "payload.dll", "malware.dll"}
             _SUSP_DLL_PATHS = ("\\users\\public\\", "\\appdata\\local\\temp\\", "\\programdata\\")
@@ -368,10 +481,31 @@ def run_evtx(toolkit, evidence: str, tools: list[str]) -> SpecialistOutput:
                 ) if (techs or d.get("event_id")) else []
                 locator = str(d.get("rule") or d.get("computer") or d.get("event_id") or "")
                 sev = _LEVEL_SEV.get(str(d.get("level", "")).lower(), Severity.MEDIUM)
+                # Special handling for high-value events
+                details = str(d.get("details", ""))
+                eid = int(d.get("event_id") or 0)
+                title = d.get("rule") or f"EventID {eid}"
+                desc  = (f"Hayabusa/Sigma matched on {d.get('computer')} "
+                         f"(EventID {eid}, {d.get('tactics')}). {details[:200]}")
+                # Kerberoasting: 4769 with RC4 encryption type
+                if eid == 4769 and ("0x17" in details or "RC4" in details.upper()):
+                    title = f"Kerberoasting detected: RC4-encrypted TGS for '{_extract_service(details)}'"
+                    desc  = (f"EventID 4769 with TicketEncryptionType=0x17 (RC4-HMAC). "
+                             f"RC4 encryption in a modern Kerberos environment indicates Kerberoasting. {details[:160]}")
+                    attack = [m for m in attack] + _attack_for("kerberoasting")
+                    attack = dedupe_mappings(attack)
+                # WMI persistence: 5861 consumer created
+                elif eid in (5861, 5859, 5857):
+                    title = f"WMI persistence: {title}"
+                    attack = dedupe_mappings(attack + _attack_for("wmi_persistence"))
+                # Token impersonation: 4624 with LogonType=9
+                elif eid == 4624 and "logontype=9" in details.lower().replace(" ", ""):
+                    title = f"Token impersonation (LogonType=9): {title}"
+                    attack = dedupe_mappings(attack + _attack_for("token_impersonation"))
+
                 out["findings"].append(_finding(
-                    title=f"EVTX detection: {d.get('rule') or 'event ' + str(d.get('event_id'))}",
-                    desc=(f"Hayabusa/Sigma matched on {d.get('computer')} "
-                          f"(EventID {d.get('event_id')}, {d.get('tactics')}). {str(d.get('details'))[:160]}"),
+                    title=f"EVTX detection: {title}",
+                    desc=desc,
                     evtype=EvidenceType.EVTX, severity=sev, confidence=Confidence.CONFIRMED,
                     attack=attack, cited=[locator],
                     prov=[_prov(res.tool_exec_id, "evtx_hunt", locator)], agent=agent,

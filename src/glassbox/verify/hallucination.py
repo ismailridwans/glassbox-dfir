@@ -29,7 +29,7 @@ from typing import Iterable, Optional
 from pydantic import BaseModel
 
 from glassbox.audit.rawstore import RawStore
-from glassbox.models import Confidence, Discrepancy, Finding
+from glassbox.models import Confidence, Discrepancy, EpistemicType, Finding
 
 
 class VerificationOutcome(BaseModel):
@@ -149,14 +149,35 @@ def verify_findings(
         outcome = _check_finding(finding, rawstore, known)
         finding.confidence = outcome.verdict
         finding.verifier_note = "; ".join(outcome.reasons)
-        # Confidence score: 1.0 for CONFIRMED, 0.7 for INFERRED, 0.0 for HALLUCINATED
-        # Modulated by number of verified locators (more evidence = higher score)
-        if outcome.verdict == Confidence.CONFIRMED:
-            finding.confidence_score = min(1.0, 0.7 + 0.1 * min(outcome.checked_locators, 3))
-        elif outcome.verdict == Confidence.INFERRED:
-            finding.confidence_score = 0.6
-        else:
+
+        # ---- NABAOS epistemic typing (arXiv 2603.10060) ----
+        # Assign the epistemic source classification based on verification result.
+        if outcome.verdict == Confidence.HALLUCINATED:
+            finding.epistemic_type = EpistemicType.UNGROUNDED
             finding.confidence_score = 0.0
+        elif finding.confidence == Confidence.CONFIRMED:
+            # Direct observation in tool output — Pratyaksa
+            finding.epistemic_type = EpistemicType.PRATYAKSA
+            finding.confidence_score = min(1.0, 0.75 + 0.083 * min(outcome.checked_locators, 3))
+        elif finding.confidence == Confidence.INFERRED:
+            # Derived from confirmed facts — Anumana
+            finding.epistemic_type = EpistemicType.ANUMANA
+            finding.confidence_score = 0.65
+        else:
+            finding.epistemic_type = EpistemicType.UNGROUNDED
+            finding.confidence_score = 0.0
+
+        # ---- Approval workflow ----
+        # CRITICAL findings with unverified epistemic type require human review.
+        from glassbox.models import Severity
+        if (finding.severity == Severity.CRITICAL and
+                finding.epistemic_type == EpistemicType.ANUMANA):
+            finding.requires_human_review = True
+            finding.approval_status = "PENDING_REVIEW"
+        else:
+            finding.requires_human_review = False
+            finding.approval_status = "AUTO_APPROVED"
+
         result.outcomes.append(outcome)
         if outcome.verdict == Confidence.HALLUCINATED:
             result.quarantined.append(finding)
@@ -168,6 +189,9 @@ def verify_findings(
                 finding_id=finding.finding_id,
                 declared=outcome.declared.value,
                 verdict=outcome.verdict.value,
+                epistemic_type=finding.epistemic_type.value if finding.epistemic_type else None,
+                confidence_score=round(finding.confidence_score, 3),
+                requires_human_review=finding.requires_human_review,
                 checked_locators=outcome.checked_locators,
                 missing=outcome.missing_locators,
                 reasons=outcome.reasons,

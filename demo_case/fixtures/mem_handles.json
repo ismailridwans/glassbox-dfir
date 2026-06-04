@@ -1,0 +1,9 @@
+[
+  {"PID": 1484, "Process": "explorer.exe",  "Offset": "0xfffffa8001a00070", "HandleValue": "0x40",  "Type": "File",    "GrantedAccess": "0x120089", "Name": "\\Device\\NamedPipe\\MSSE-1337-server"},
+  {"PID": 1484, "Process": "explorer.exe",  "Offset": "0xfffffa8001a00090", "HandleValue": "0x44",  "Type": "Process", "GrantedAccess": "0x1410",   "Name": ""},
+  {"PID": 1484, "Process": "explorer.exe",  "Offset": "0xfffffa8001a000c0", "HandleValue": "0x48",  "Type": "Key",     "GrantedAccess": "0x20019",  "Name": "\\REGISTRY\\MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Cridex"},
+  {"PID": 1640, "Process": "reader_sl.exe", "Offset": "0xfffffa8001b00070", "HandleValue": "0x3c",  "Type": "Section", "GrantedAccess": "0xe0000006","Name": "\\Sessions\\1\\Windows\\SharedSection"},
+  {"PID": 1640, "Process": "reader_sl.exe", "Offset": "0xfffffa8001b00090", "HandleValue": "0x4c",  "Type": "File",    "GrantedAccess": "0x120089", "Name": "\\Device\\NamedPipe\\msagent_da1f34"},
+  {"PID": 424,  "Process": "lsass.exe",     "Offset": "0xfffffa8001c00070", "HandleValue": "0x10",  "Type": "Key",     "GrantedAccess": "0x20019",  "Name": "\\REGISTRY\\MACHINE\\SECURITY"},
+  {"PID": 788,  "Process": "svchost.exe",   "Offset": "0xfffffa8001d00070", "HandleValue": "0x8",   "Type": "Key",     "GrantedAccess": "0x20019",  "Name": "\\REGISTRY\\MACHINE\\SYSTEM"}
+]

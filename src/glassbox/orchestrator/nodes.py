@@ -319,9 +319,14 @@ def critique(state, *, ctx: CaseContext, llm: BaseLLM, seq: Callable[[], int]) -
     # Indicators that justify deeper memory analysis
     ext_or_inj = any(
         ("External network connection" in f.title) or ("Injected" in f.title)
-        or ("malfind" in f.description.lower())
+        or ("malfind" in f.description.lower()) or ("YARA match" in f.title)
         for f in findings
     )
+    has_hidden_proc = any("hidden" in f.title.lower() or "psxview" in f.title.lower() for f in findings)
+    has_kerberoasting = any("kerberoasting" in f.title.lower() for f in findings)
+    has_wmi = any("wmi" in f.title.lower() for f in findings)
+    has_cmd_evidence = any("command line" in f.title.lower() or "cmdscan" in f.title.lower() for f in findings)
+
     for mem in mem_labels:
         if ext_or_inj and ("mem_psscan", mem) not in ran_pairs:
             gaps.append({"tool": "mem_psscan", "evidence": mem, "agent": "memory_analyst",
@@ -342,6 +347,26 @@ def critique(state, *, ctx: CaseContext, llm: BaseLLM, seq: Callable[[], int]) -
         if ext_or_inj and ("mem_pstree", mem) not in ran_pairs:
             gaps.append({"tool": "mem_pstree", "evidence": mem, "agent": "memory_analyst",
                          "reason": "build process tree to surface suspicious parent-child chains"})
+        # Advanced: psxview for hidden process cross-view (if psscan found hidden procs)
+        if has_hidden_proc and ("mem_psxview", mem) not in ran_pairs:
+            gaps.append({"tool": "mem_psxview", "evidence": mem, "agent": "memory_analyst",
+                         "reason": "hidden process detected — 6-source cross-view to confirm DKOM hiding"})
+        # Advanced: handles for C2 named pipe / cross-process injection evidence
+        if ext_or_inj and ("mem_handles", mem) not in ran_pairs:
+            gaps.append({"tool": "mem_handles", "evidence": mem, "agent": "memory_analyst",
+                         "reason": "injection indicators — enumerate handles for C2 named pipes"})
+        # Advanced: cmdscan for attacker command history
+        if ("mem_cmdscan", mem) not in ran_pairs:
+            gaps.append({"tool": "mem_cmdscan", "evidence": mem, "agent": "memory_analyst",
+                         "reason": "recover typed command history from COMMAND_HISTORY structures"})
+        # Advanced: mutantscan for malware family fingerprinting
+        if ext_or_inj and ("mem_mutantscan", mem) not in ran_pairs:
+            gaps.append({"tool": "mem_mutantscan", "evidence": mem, "agent": "memory_analyst",
+                         "reason": "malware indicators — fingerprint via named mutex strings"})
+        # Advanced: mftscan if disk artifacts show deleted files
+        if ("mem_mftscan", mem) not in ran_pairs and has_hidden_proc:
+            gaps.append({"tool": "mem_mftscan", "evidence": mem, "agent": "memory_analyst",
+                         "reason": "hidden process found — scan memory MFT for deleted malware files"})
 
     # Graceful degradation -> try a pure-Python fallback for EVTX
     if "evtx_to_json" in {d for d in state.get("degraded", [])}:
@@ -391,7 +416,8 @@ def route_after_critique(state) -> str:
 
 
 def report(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
-    from glassbox.timeline import build_timeline, narrative_summary  # lazy — avoids import cycle
+    from glassbox.timeline import build_timeline, narrative_summary
+    from glassbox.approve import ApprovalGate
     integrity = ctx.integrity.verify()
     chain_valid, chain_errs = ctx.audit.verify_self()
     findings = state.get("findings", [])
@@ -409,6 +435,18 @@ def report(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
     total = TokenUsage()
     timeline = build_timeline(findings, discrepancies)
     narrative = narrative_summary(timeline, case_id=state.get("case_id", ctx.config.case_id))
+
+    # Apply approval gate: classify findings and compute investigation depth
+    gate = ApprovalGate(state.get("case_id", ctx.config.case_id), audit=ctx.audit)
+    for f in findings:
+        gate.classify_finding(f)
+    approval_summary = gate.apply_to_report(findings)
+    depth = ApprovalGate.investigation_depth(
+        findings,
+        initial_alert_terms=["malware", "suspicious", "cridex", "alert", "infection"],
+    )
+    ctx.audit.append("approval_gate", **approval_summary)
+    ctx.audit.append("investigation_depth", **depth)
     for m in a2a:
         total = total + (m.token_usage if isinstance(m.token_usage, TokenUsage) else TokenUsage(**m.token_usage))
 

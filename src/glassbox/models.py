@@ -53,6 +53,26 @@ class Confidence(str, Enum):
     HALLUCINATED = "HALLUCINATED"
 
 
+class EpistemicType(str, Enum):
+    """NABAOS-style epistemic source classification (arXiv 2603.10060).
+
+    Tags every finding claim by its evidentiary basis so consumers can act
+    appropriately without having to re-read the verifier note.
+
+    PRATYAKSA  - Direct observation: value found verbatim in captured tool output.
+    ANUMANA    - Inference: derived from PRATYAKSA facts by deterministic logic.
+    ABHAVA     - Absence: the tool ran and returned zero results; absence is itself evidence.
+    SABDA      - External authority: from a lookup/threat-feed call at runtime.
+    UNGROUNDED - No evidentiary basis or contradicted by tool output.
+    """
+
+    PRATYAKSA  = "PRATYAKSA"   # Sanskrit: direct perception
+    ANUMANA    = "ANUMANA"     # Sanskrit: inference
+    ABHAVA     = "ABHAVA"      # Sanskrit: absence
+    SABDA      = "SABDA"       # Sanskrit: authoritative testimony
+    UNGROUNDED = "UNGROUNDED"
+
+
 class Severity(str, Enum):
     INFO = "INFO"
     LOW = "LOW"
@@ -178,6 +198,21 @@ class Finding(BaseModel):
     confidence_score: float = Field(default=0.0, ge=0.0, le=1.0,
                                      description="Numeric confidence 0.0-1.0 (updated by verifier)")
     iteration_found: int = Field(default=1, description="Which triage iteration first found this")
+    # NABAOS epistemic classification (arXiv 2603.10060) — auto-assigned by verifier
+    epistemic_type: Optional[EpistemicType] = Field(
+        default=None,
+        description="NABAOS epistemic source: PRATYAKSA (direct) | ANUMANA (inferred) | "
+                    "ABHAVA (absence) | SABDA (external authority) | UNGROUNDED"
+    )
+    # Valhuntir-grade finding approval workflow
+    approval_status: str = Field(
+        default="AUTO_APPROVED",
+        description="AUTO_APPROVED | PENDING_REVIEW | APPROVED | REJECTED"
+    )
+    requires_human_review: bool = Field(
+        default=False,
+        description="CRITICAL findings above threshold require human review before actioning"
+    )
 
     def is_reportable(self) -> bool:
         return self.confidence in (Confidence.CONFIRMED, Confidence.INFERRED)

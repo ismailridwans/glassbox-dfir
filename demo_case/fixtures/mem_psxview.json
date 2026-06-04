@@ -1,0 +1,10 @@
+[
+  {"PID": 4,    "ImageFileName": "System",       "pslist": "True",  "psscan": "True",  "csrss": "False", "session": "False", "deskthrd": "False", "handles": "True"},
+  {"PID": 272,  "ImageFileName": "smss.exe",     "pslist": "True",  "psscan": "True",  "csrss": "False", "session": "False", "deskthrd": "False", "handles": "True"},
+  {"PID": 412,  "ImageFileName": "services.exe", "pslist": "True",  "psscan": "True",  "csrss": "True",  "session": "True",  "deskthrd": "True",  "handles": "True"},
+  {"PID": 424,  "ImageFileName": "lsass.exe",    "pslist": "True",  "psscan": "True",  "csrss": "True",  "session": "True",  "deskthrd": "True",  "handles": "True"},
+  {"PID": 1484, "ImageFileName": "explorer.exe", "pslist": "True",  "psscan": "True",  "csrss": "True",  "session": "True",  "deskthrd": "True",  "handles": "True"},
+  {"PID": 1640, "ImageFileName": "reader_sl.exe","pslist": "True",  "psscan": "True",  "csrss": "True",  "session": "True",  "deskthrd": "True",  "handles": "True"},
+  {"PID": 1520, "ImageFileName": "HIDDEN_PROC",  "pslist": "False", "psscan": "True",  "csrss": "False", "session": "False", "deskthrd": "False", "handles": "False"},
+  {"PID": 1896, "ImageFileName": "wuauclt.exe",  "pslist": "False", "psscan": "True",  "csrss": "True",  "session": "True",  "deskthrd": "True",  "handles": "True"}
+]

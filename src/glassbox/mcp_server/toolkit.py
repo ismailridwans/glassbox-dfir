@@ -186,6 +186,51 @@ class ReadOnlyToolKit:
                          evidence=evidence, agent=agent,
                          replay_key="mem_dlllist" if self.replay else None)
 
+    def mem_psxview(self, evidence: str, agent: str = "memory_analyst") -> ToolResult:
+        """6-source cross-view process listing (windows.malware.psxview) — detects DKOM hiding.
+        Compares pslist/psscan/csrss/session/deskthrd/handles lists; processes missing from
+        any source are flagged. Read-only."""
+        return self._vol(evidence, "windows.malware.psxview.PsXView",
+                         parsers.normalize_psxview, tool="mem_psxview", agent=agent)
+
+    def mem_handles(self, evidence: str, pid: Optional[int] = None,
+                    agent: str = "memory_analyst") -> ToolResult:
+        """Enumerate open handles per process (windows.handles). Surfaces C2 named pipes,
+        cross-process injection handles (PROCESS_VM_READ on lsass), shared sections.
+        Read-only."""
+        plugin = "windows.handles.Handles"
+        argv = [*self.runner.tool_paths.argv("vol"), "-q", "-r", "json", "-f", "{EV}", plugin]
+        if pid is not None:
+            argv += ["--pid", str(pid)]
+        return self._run(tool="mem_handles", argv=argv, parser=parsers.normalize_handles,
+                         evidence=evidence, agent=agent,
+                         replay_key="mem_handles" if self.replay else None)
+
+    def mem_cmdscan(self, evidence: str, agent: str = "memory_analyst") -> ToolResult:
+        """Recover typed command history from COMMAND_HISTORY structures (windows.cmdscan).
+        Reconstructs attacker-typed commands even after CMD window closure. Read-only."""
+        return self._vol(evidence, "windows.cmdscan.CmdScan",
+                         parsers.normalize_cmdscan, tool="mem_cmdscan", agent=agent)
+
+    def mem_consoles(self, evidence: str, agent: str = "memory_analyst") -> ToolResult:
+        """Recover full console screen buffer content (windows.consoles) — complete terminal
+        output including attacker commands and responses. Read-only."""
+        return self._vol(evidence, "windows.consoles.Consoles",
+                         parsers.normalize_consoles, tool="mem_consoles", agent=agent)
+
+    def mem_mutantscan(self, evidence: str, agent: str = "memory_analyst") -> ToolResult:
+        """Enumerate named mutexes (windows.mutantscan) — malware family fingerprinting.
+        Named mutexes are hard-coded by malware families (Zeus, Conficker, Cridex).
+        Read-only."""
+        return self._vol(evidence, "windows.mutantscan.MutantScan",
+                         parsers.normalize_mutantscan, tool="mem_mutantscan", agent=agent)
+
+    def mem_mftscan(self, evidence: str, agent: str = "memory_analyst") -> ToolResult:
+        """Scan memory for in-memory MFT FILE records (windows.mftscan.MFTScan) — recovers
+        files deleted from disk but still cached in memory. Read-only."""
+        return self._vol(evidence, "windows.mftscan.MFTScan",
+                         parsers.normalize_mftscan, tool="mem_mftscan", agent=agent)
+
     # ================================================================== #
     # YARA (memory and file scanning)
     # ================================================================== #
@@ -371,11 +416,44 @@ class ReadOnlyToolKit:
         return {"count": len(mappings), "mappings": [m.model_dump() for m in mappings]}
 
     # ------------------------------------------------------------------ #
+    # ================================================================== #
+    # LIVE ENDPOINT / SIEM (read-only, graceful degradation if offline)
+    # ================================================================== #
+    def live_endpoint_query(
+        self, backend: str, query: str, *,
+        agent: str = "network_analyst", **kwargs
+    ) -> dict:
+        """Query a live SIEM/EDR backend (read-only). Gracefully returns UNAVAILABLE
+        if the backend service is not reachable, so offline triage continues normally.
+
+        Args:
+            backend: 'wazuh' | 'elastic' | 'velociraptor' | 'splunk'
+            query:   Free-text query, SPL, VQL, or index name depending on backend.
+        """
+        from glassbox.siem import build_client
+        client = build_client(backend)
+        if client is None:
+            return {"status": "UNAVAILABLE", "backend": backend,
+                    "note": f"Unknown backend '{backend}'. Use: wazuh | elastic | velociraptor | splunk"}
+        if hasattr(client, "search"):
+            result = client.search(query, **{k: v for k, v in kwargs.items()
+                                             if k in ("earliest", "latest", "count", "size")})
+        elif hasattr(client, "get_alerts"):
+            result = client.get_alerts(time_range=kwargs.get("time_range", "1h"))
+        else:
+            return {"status": "ERROR", "backend": backend, "note": "No query method found"}
+        return result.to_tool_result_summary()
+
     def list_tools(self) -> list[str]:
         return [
-            # Memory (Volatility 3)
+            # Memory (Volatility 3) — standard
             "mem_pslist", "mem_pstree", "mem_psscan", "mem_netscan", "mem_malfind",
             "mem_cmdline", "mem_svcscan", "mem_dlllist",
+            # Memory (Volatility 3) — advanced malware analysis
+            "mem_psxview", "mem_handles", "mem_cmdscan", "mem_consoles",
+            "mem_mutantscan", "mem_mftscan",
+            # Live SIEM / EDR (read-only, graceful offline degradation)
+            "live_endpoint_query",
             # YARA
             "yara_scan",
             # Disk (Sleuth Kit)

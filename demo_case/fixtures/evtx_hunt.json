@@ -31,5 +31,60 @@
     "Details":    "TargetUserName=backdoor; SubjectUserName=SYSTEM",
     "MitreTactics":"Persistence",
     "MitreTags":  "attack.t1136.001"
+  },
+  {
+    "Timestamp":  "2012-07-22T02:43:50.000Z",
+    "Computer":   "VICTIM-PC",
+    "Channel":    "Security",
+    "EventID":    4769,
+    "Level":      "high",
+    "RuleTitle":  "Kerberoasting - RC4 Encryption Type in TGS Request",
+    "Details":    "ServiceName=MSSQLSvc/sqlserver01.victim.local:1433; TicketEncryptionType=0x17; ClientAddress=172.16.112.128; TargetUserName=svc_sql",
+    "MitreTactics":"Credential Access",
+    "MitreTags":  "attack.t1558.003 attack.credential_access"
+  },
+  {
+    "Timestamp":  "2012-07-22T02:43:45.000Z",
+    "Computer":   "VICTIM-PC",
+    "Channel":    "Security",
+    "EventID":    4648,
+    "Level":      "high",
+    "RuleTitle":  "Explicit Credential Logon - Possible Pass-the-Hash",
+    "Details":    "SubjectUserName=VICTIM-PC$; TargetUserName=Administrator; TargetServerName=172.16.112.1",
+    "MitreTactics":"Lateral Movement",
+    "MitreTags":  "attack.t1550.002 attack.lateral_movement"
+  },
+  {
+    "Timestamp":  "2012-07-22T02:44:00.000Z",
+    "Computer":   "VICTIM-PC",
+    "Channel":    "Microsoft-Windows-WMI-Activity/Operational",
+    "EventID":    5861,
+    "Level":      "high",
+    "RuleTitle":  "WMI Permanent Event Consumer Created",
+    "Details":    "ConsumerName=CridexPersistence; ConsumerType=CommandLineEventConsumer; CommandLine=C:\\Users\\Public\\cridex.exe /persist",
+    "MitreTactics":"Persistence",
+    "MitreTags":  "attack.t1546.003 attack.persistence"
+  },
+  {
+    "Timestamp":  "2012-07-22T02:44:20.000Z",
+    "Computer":   "VICTIM-PC",
+    "Channel":    "Microsoft-Windows-TaskScheduler/Operational",
+    "EventID":    140,
+    "Level":      "medium",
+    "RuleTitle":  "Scheduled Task Modified",
+    "Details":    "TaskName=\\Microsoft\\Windows\\Cridex\\PersistTask; SubjectUserName=SYSTEM",
+    "MitreTactics":"Persistence",
+    "MitreTags":  "attack.t1053.005"
+  },
+  {
+    "Timestamp":  "2012-07-22T02:44:30.000Z",
+    "Computer":   "VICTIM-PC",
+    "Channel":    "Security",
+    "EventID":    4624,
+    "Level":      "medium",
+    "RuleTitle":  "Logon Type 9 - NewCredentials (Token Impersonation)",
+    "Details":    "LogonType=9; SubjectUserName=reader_sl; TargetOutboundUserName=Administrator; LogonProcessName=seclogo",
+    "MitreTactics":"Privilege Escalation",
+    "MitreTags":  "attack.t1134.001 attack.privilege_escalation"
   }
 ]

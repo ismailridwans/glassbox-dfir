@@ -88,6 +88,43 @@ def mem_dlllist(evidence: str, pid: Optional[int] = None) -> ToolResult:
     return _kit().mem_dlllist(evidence, pid=pid)
 
 
+# --- advanced memory ------------------------------------------------------- #
+@mcp.tool()
+def mem_psxview(evidence: str) -> ToolResult:
+    """6-source cross-view (psxview): detects DKOM-hidden processes. Read-only."""
+    return _kit().mem_psxview(evidence)
+
+
+@mcp.tool()
+def mem_handles(evidence: str, pid: Optional[int] = None) -> ToolResult:
+    """Open handles per process — surfaces C2 named pipes + cross-proc injection. Read-only."""
+    return _kit().mem_handles(evidence, pid=pid)
+
+
+@mcp.tool()
+def mem_cmdscan(evidence: str) -> ToolResult:
+    """Recover attacker command history from COMMAND_HISTORY structures. Read-only."""
+    return _kit().mem_cmdscan(evidence)
+
+
+@mcp.tool()
+def mem_consoles(evidence: str) -> ToolResult:
+    """Recover full console screen buffer (terminal output). Read-only."""
+    return _kit().mem_consoles(evidence)
+
+
+@mcp.tool()
+def mem_mutantscan(evidence: str) -> ToolResult:
+    """Named mutex enumeration for malware family fingerprinting. Read-only."""
+    return _kit().mem_mutantscan(evidence)
+
+
+@mcp.tool()
+def mem_mftscan(evidence: str) -> ToolResult:
+    """In-memory MFT scan — recovers deleted malware files still cached. Read-only."""
+    return _kit().mem_mftscan(evidence)
+
+
 # --- YARA ------------------------------------------------------------------ #
 @mcp.tool()
 def yara_scan(evidence: str, rules_path: Optional[str] = None) -> ToolResult:

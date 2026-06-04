@@ -91,6 +91,24 @@ TECHNIQUES: dict[str, tuple[str, list[str]]] = {
     # --- Initial Access ---
     "T1566.001": ("Phishing: Spearphishing Attachment", ["TA0001"]),
     "T1190": ("Exploit Public-Facing Application", ["TA0001"]),
+    # --- Credential Access (additional) ---
+    "T1558.003": ("Steal or Forge Kerberos Tickets: Kerberoasting", ["TA0006"]),
+    "T1555.003": ("Credentials from Password Stores: Credentials from Web Browsers", ["TA0006"]),
+    "T1555":     ("Credentials from Password Stores", ["TA0006"]),
+    # --- Privilege Escalation (additional) ---
+    "T1134.001": ("Access Token Manipulation: Token Impersonation/Theft", ["TA0004", "TA0005"]),
+    "T1134.002": ("Access Token Manipulation: Create Process with Token", ["TA0004", "TA0005"]),
+    # --- Persistence (additional) ---
+    "T1546.003": ("Event Triggered Execution: Windows Management Instrumentation Event Subscription", ["TA0003", "TA0004"]),
+    "T1546.015": ("Event Triggered Execution: Component Object Model Hijacking", ["TA0003"]),
+    "T1574.001": ("Hijack Execution Flow: DLL Search Order Hijacking", ["TA0003", "TA0004", "TA0005"]),
+    # --- Defense Evasion (additional) ---
+    "T1562.006": ("Impair Defenses: Indicator Blocking", ["TA0005"]),
+    "T1106":     ("Native API", ["TA0002"]),
+    "T1014":     ("Rootkit", ["TA0005"]),
+    # --- Impact ---
+    "T1486":     ("Data Encrypted for Impact", ["TA0040"]),
+    "T1561.002": ("Disk Wipe: Disk Structure Wipe", ["TA0040"]),
 }
 
 # Artifact key (set by parsers/specialists) -> [technique_ids]. Where an
@@ -142,6 +160,13 @@ ARTIFACT_TECHNIQUES: dict[str, list[str]] = {
     "lolbas_cmd": ["T1059.003"],
     "lolbas_vbs": ["T1059.005"],
     "winrm": ["T1021.006"],
+    "kerberoasting": ["T1558.003"],
+    "token_impersonation": ["T1134.001"],
+    "browser_credential": ["T1555.003"],
+    "wmi_persistence": ["T1546.003"],
+    "com_hijacking": ["T1546.015"],
+    "dll_hijacking": ["T1574.001"],
+    "rootkit": ["T1014"],
 }
 
 # Windows Security/Sysmon event ID -> artifact key (a hint, not a verdict).
@@ -159,7 +184,25 @@ EVENTID_ARTIFACT: dict[int, str] = {
     4769: "pass_the_hash",           # Kerberos TGS request (RC4)
     4776: "remote_logon_ntlm",       # NTLM authentication
     4624: "remote_logon_ntlm",       # Successful logon
-    4688: "process_discovery",       # Process created (Sysmon-equivalent)
-    4663: "file_directory_discovery",# Object access: file/dir enumeration
-    4657: "query_registry",          # Registry value modified/queried
+    4688: "process_discovery",        # Process created (Sysmon-equivalent)
+    4663: "file_directory_discovery", # Object access: file/dir enumeration
+    4657: "query_registry",           # Registry value modified/queried
+    # Kerberoasting
+    4769: "kerberoasting",            # Kerberos TGS request — check for RC4 EncType=0x17
+    4768: "kerberoasting",            # Kerberos TGT request
+    # Token/Credential
+    4693: "browser_credential",       # DPAPI master key recovery
+    4692: "browser_credential",       # DPAPI master key backup
+    # Token impersonation
+    # (4624 w/ LogonType=9 handled specially in specialist code)
+    # WMI persistence events
+    5861: "wmi_persistence",          # WMI permanent event consumer created
+    5859: "wmi_persistence",          # WMI ESS notification triggered
+    5857: "wmi_persistence",          # WMI provider DLL load
+    # Scheduled task modification/deletion
+    140:  "scheduled_task",           # Scheduled task modified
+    141:  "scheduled_task",           # Scheduled task deleted
+    # AppLocker blocks
+    8004: "defender_tamper",          # AppLocker EXE blocked
+    8007: "defender_tamper",          # AppLocker Script blocked
 }

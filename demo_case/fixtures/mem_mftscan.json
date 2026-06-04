@@ -1,0 +1,7 @@
+[
+  {"Filename": "Users/Public/cridex.exe",                          "Record Type": "FILE", "Created": "2012-07-22 02:43:00", "Modified": "2012-07-22 02:43:01"},
+  {"Filename": "Users/ismai/AppData/Local/Temp/reader_sl.exe",     "Record Type": "FILE", "Created": "2012-07-22 02:42:55", "Modified": "2012-07-22 02:42:55"},
+  {"Filename": "Users/Public/payload.exe",                         "Record Type": "FILE", "Created": "2012-07-22 02:44:05", "Modified": "2012-07-22 02:44:05"},
+  {"Filename": "Windows/System32/ntoskrnl.exe",                    "Record Type": "FILE", "Created": "2008-04-14 00:00:00", "Modified": "2008-04-14 00:00:00"},
+  {"Filename": "Windows/System32/kernel32.dll",                    "Record Type": "FILE", "Created": "2008-04-14 00:00:00", "Modified": "2008-04-14 00:00:00"}
+]
