@@ -98,7 +98,7 @@ class TestHTTP:
     def test_root_serves_landing(self, server):
         _, _, body = _get(server + "/")
         # landing page hero markers (not the SPA shell)
-        assert b'class="hero"' in body
+        assert b'class="hero' in body
         assert b"Launch Dashboard" in body
 
     def test_app_serves_spa(self, server):

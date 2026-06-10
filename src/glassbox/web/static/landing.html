@@ -41,24 +41,49 @@
     </div>
   </nav>
 
-  <!-- ============ HERO ============ -->
-  <header class="hero">
+  <!-- ============ HERO (split: editorial text + live terminal) ============ -->
+  <header class="hero split has-glow">
+    <div class="glow-blob p" style="width:560px;height:560px;top:-200px;left:58%"></div>
+    <div class="glow-blob b" style="width:380px;height:380px;top:120px;left:-130px"></div>
+    <div class="glow-blob c" style="width:300px;height:300px;bottom:-120px;right:-80px"></div>
     <div class="lp-wrap">
-      <span class="eyebrow"><span class="dot"></span> SANS SIFT · Protocol SIFT · FIND&nbsp;EVIL!</span>
-      <h1>Find evil at <span class="grad">machine speed</span> — without hallucinating.</h1>
-      <p class="lead">GLASSBOX is an autonomous, read-only DFIR triage agent. It works disk, memory, EVTX and PCAP in seconds — every finding traces back to the tool call that produced it, a red-team challenges every claim, and the evidence is architecturally untouchable.</p>
-      <div class="hero-cta">
-        <a class="btn btn-primary btn-lg" href="/app">Launch Dashboard</a>
-        <a class="btn btn-lg" href="#run">▶ See it run</a>
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow"><span class="dot"></span> SANS SIFT · Protocol SIFT · FIND&nbsp;EVIL!</span>
+          <h1>Find evil at <span class="grad">machine speed</span> — without hallucinating.</h1>
+          <p class="lead">GLASSBOX is an autonomous, read-only DFIR triage agent for the SANS SIFT Workstation. Every finding traces back to the tool call that produced it, a red-team challenges every claim, and the evidence is architecturally untouchable.</p>
+          <div class="hero-cta">
+            <a class="btn btn-primary btn-lg" href="/app">Launch Dashboard</a>
+            <a class="btn btn-lg" href="#run">▶ See it run</a>
+          </div>
+          <div class="hero-trust">
+            <span>Adversary breakout: <b>~8&nbsp;min</b>.</span>
+            <span>GLASSBOX triage: <b>&lt;&nbsp;1&nbsp;second</b>.</span>
+          </div>
+        </div>
+        <div class="reveal">
+          <div class="terminal">
+            <div class="term-bar"><div class="dots"><i></i><i></i><i></i></div><span class="t">glassbox — autonomous triage</span></div>
+            <div class="term-body" id="term"></div>
+          </div>
+        </div>
       </div>
-      <div class="hero-trust">
-        <span>An AI adversary reaches domain control in <b>~8&nbsp;minutes</b>.</span>
-        <span>GLASSBOX triages a full case in <b>&lt;&nbsp;1&nbsp;second</b>.</span>
-      </div>
+    </div>
+  </header>
 
-      <!-- hero product shot (theme-aware mock dashboard) -->
-      <div class="hero-shot reveal">
-        <div class="browser">
+  <!-- tool marquee -->
+  <section class="sec tight">
+    <div class="lp-wrap" style="margin-bottom:22px">
+      <div class="center muted" style="font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">Built on the SANS SIFT toolchain — wrapped as typed, read-only functions</div>
+    </div>
+    <div class="marquee"><div class="marquee-track" id="marquee"></div></div>
+  </section>
+
+  <!-- ============ PRODUCT REVEAL ============ -->
+  <section class="sec tight">
+    <div class="lp-wrap">
+      <div class="hero-shot reveal" style="max-width:1000px;margin:0 auto">
+        <div class="browser full">
           <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="url">glassbox · /app#/dashboard</div></div>
           <div class="browser-body">
             <div class="mock-metrics">
@@ -92,7 +117,7 @@
         </div>
       </div>
     </div>
-  </header>
+  </section>
 
   <!-- ============ QUOTE ============ -->
   <section class="sec band">
@@ -153,32 +178,59 @@
     </div>
   </section>
 
-  <!-- ============ TOOL STRIP ============ -->
-  <section class="sec tight band">
-    <div class="lp-wrap">
-      <div class="center muted" style="font-size:12.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:22px">Built on the SANS SIFT toolchain — wrapped as typed, read-only functions</div>
-      <div class="logos reveal">
-        <span class="logo-chip"><span class="d"></span> Volatility 3</span>
-        <span class="logo-chip"><span class="d"></span> The Sleuth Kit</span>
-        <span class="logo-chip"><span class="d"></span> Hayabusa</span>
-        <span class="logo-chip"><span class="d"></span> EvtxECmd</span>
-        <span class="logo-chip"><span class="d"></span> tshark</span>
-        <span class="logo-chip"><span class="d"></span> RegRipper</span>
-        <span class="logo-chip"><span class="d"></span> YARA</span>
-        <span class="logo-chip"><span class="d"></span> Plaso</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ FEATURES ============ -->
-  <section class="sec" id="features">
+  <!-- ============ FEATURES (bento) ============ -->
+  <section class="sec band" id="features">
     <div class="lp-wrap">
       <div class="sec-head reveal">
         <div class="kicker">What makes it different</div>
         <h2>A DFIR analyst that can't lie — and can't touch the evidence.</h2>
-        <p>Eight capabilities the baseline Protocol SIFT — and most competitors — don't have, working together end to end.</p>
+        <p>Capabilities the baseline Protocol SIFT — and most competitors — don't have, working together end to end.</p>
       </div>
-      <div class="feat-grid" id="feat-grid"></div>
+      <div class="bento reveal">
+        <div class="b tall feature">
+          <div class="bglow"></div>
+          <div class="bi"><svg viewBox="0 0 24 24" width="22" height="22"><rect x="4" y="9" width="16" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 9V6.5a4 4 0 018 0V9" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></div>
+          <h3>Read-only by construction</h3>
+          <p>The MCP server exposes only typed read functions — no shell, write, or delete tool exists for the agent to call. Spoliation is architecturally impossible, not prompt-requested.</p>
+          <div class="big">30</div>
+          <div class="metric-sub" style="margin-top:4px;color:var(--muted)">read-only tools, zero write paths</div>
+          <div class="minibars"><i style="height:45%"></i><i style="height:62%"></i><i style="height:50%"></i><i style="height:80%"></i><i style="height:58%"></i><i style="height:72%"></i><i style="height:64%"></i><i style="height:90%"></i><i style="height:54%"></i><i style="height:70%"></i></div>
+        </div>
+        <div class="b wide">
+          <div class="bglow"></div>
+          <div class="bi"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 12l4 4L19 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <h3>Mechanical hallucination gate</h3>
+          <p>Every finding is re-checked against the captured raw output of the tool it cites. Ungrounded claims are quarantined — never reported as fact. This is the GTG-1002 failure mode, engineered out.</p>
+          <div class="tag"><span class="tagx">0 fabricated findings</span></div>
+        </div>
+        <div class="b">
+          <div class="bi"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <h3>Adversarial red-team</h3>
+          <p>A panel of skeptics challenges every finding — upheld, demoted, or refuted — removing false positives like benign DNS.</p>
+        </div>
+        <div class="b">
+          <div class="bi"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M7 7l-4 5 4 5M17 7l4 5-4 5M14 4l-4 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <h3>Cross-source correlation</h3>
+          <p>Disk vs memory: hidden processes (psscan ≠ pslist), orphan connections, bad parents that single-source misses.</p>
+        </div>
+        <div class="b wide">
+          <div class="bglow"></div>
+          <div class="bi"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
+          <h3>Hash-chained audit + deterministic replay</h3>
+          <p>A tamper-evident chain of custody where each record's hash covers the prior. The full finding set re-derives from the log alone — court-admissible reproducibility (FRE 901 / Daubert).</p>
+          <div class="tag"><span class="tagx">61/61 findings reproduced</span></div>
+        </div>
+        <div class="b">
+          <div class="bi"><svg viewBox="0 0 24 24" width="22" height="22"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="13.5" y="3.5" width="7" height="4" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="13.5" y="11" width="7" height="9.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="3.5" y="13" width="7" height="7.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></div>
+          <h3>Full ATT&CK kill-chain</h3>
+          <p>Verified technique mapping across the kill chain, with a one-click MITRE Navigator layer export.</p>
+        </div>
+        <div class="b">
+          <div class="bi"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 4v6h6M20 20v-6h-6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 10a8 8 0 0114-3M20 14a8 8 0 01-14 3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
+          <h3>Bounded self-correction</h3>
+          <p>Spots a gap, re-plans, re-runs — bounded by a hard max-iterations counter in code, so it can never spiral.</p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -284,9 +336,13 @@
   </section>
 
   <!-- ============ CTA ============ -->
-  <section class="sec spotlight cta">
+  <section class="sec spotlight cta has-glow">
+    <div class="glow-blob p" style="width:520px;height:320px;left:50%;bottom:-180px;transform:translateX(-50%)"></div>
     <div class="lp-wrap">
-      <div class="reveal">
+      <div class="reveal" style="display:flex;flex-direction:column;align-items:center">
+        <div class="hero-orb" style="width:170px;height:170px;margin:0 0 30px">
+          <div class="orb-halo"></div><div class="orb"></div>
+        </div>
         <h2 style="color:#fff">Find evil at machine speed.</h2>
         <p>Launch the console, watch a live triage run end to end, and trace any finding back to the exact tool execution that produced it.</p>
         <div class="hero-cta">
