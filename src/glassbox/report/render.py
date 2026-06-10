@@ -51,6 +51,10 @@ def render_markdown(rep: TriageReport, a2a: list[Any] | None = None) -> str:
     a(f"GLASSBOX version: {rep.glassbox_version}  ")
     a(f"Evidence types: {', '.join(e.value for e in rep.evidence_types)}  ")
     a(f"Iterations: {rep.iterations_used}/{rep.max_iterations}  ")
+    if rep.duration_ms:
+        a(f"Triage wall-clock: {rep.duration_ms} ms ({rep.duration_ms/1000:.2f}s) — "
+          f"*adversary fastest observed breakout: 7 minutes*  ")
+    a(f"Red-team verified: {len(rep.red_team_verified())} / {len(rep.findings)} findings  ")
     a(f"Audit chain valid: {'✅' if rep.audit_chain_valid else '❌ CHAIN BROKEN'}  ")
     a(f"Spoliation detected: {'❌ YES' if any(not r.unchanged for r in rep.integrity) else '✅ No'}  ")
     a(f"Total tokens: {rep.total_tokens.total}  ")
@@ -97,17 +101,23 @@ def render_markdown(rep: TriageReport, a2a: list[Any] | None = None) -> str:
     # --- findings
     confirmed = rep.confirmed()
     inferred  = rep.inferred()
-    a(f"## Findings ({len(rep.findings)} reportable)")
+    rtv = len(rep.red_team_verified())
+    a(f"## Findings ({len(rep.findings)} reportable — {rtv} red-team verified)")
     a("")
 
+    _VERDICT_BADGE = {"UPHELD": "🛡️ RED-TEAM VERIFIED", "DEMOTED": "▽ demoted by red-team"}
     for f in sorted(rep.findings, key=lambda x: list(Severity).index(x.severity)):
         icon = _SEV_ICON.get(f.severity, "")
         conf = _CONF_LABEL.get(f.confidence, f.confidence.value)
         cite = _citation(f.provenance)
+        badge = _VERDICT_BADGE.get(f.adversarial_verdict or "", "")
+        ep = f" · {f.epistemic_type.value}" if f.epistemic_type else ""
         a(f"### {icon} {_md_escape(f.title)}")
         a(f"")
         score_str = f"  Score: {f.confidence_score:.2f}" if f.confidence_score > 0 else ""
-        a(f"- **Severity:** {f.severity.value}  **Confidence:** {conf}{score_str}  {cite}")
+        a(f"- **Severity:** {f.severity.value}  **Confidence:** {conf}{ep}{score_str}  {cite}")
+        if badge:
+            a(f"- **Adversarial:** {badge}")
         if f.evidence_type:
             a(f"- **Evidence type:** {f.evidence_type.value}")
         if f.observed_at:
@@ -120,6 +130,8 @@ def render_markdown(rep: TriageReport, a2a: list[Any] | None = None) -> str:
         if f.iocs:
             ioc_str = ", ".join(f"`{i.defanged or i.value}`" for i in f.iocs[:5])
             a(f"- **IOCs:** {ioc_str}")
+        if f.requires_human_review:
+            a(f"- ⚠️ **Requires human review** (status: {f.approval_status})")
         if f.verifier_note:
             a(f"- *Verifier:* {f.verifier_note}")
         a("")
@@ -171,6 +183,31 @@ def render_markdown(rep: TriageReport, a2a: list[Any] | None = None) -> str:
     else:
         a("*None — all proposed findings were grounded in tool output.*")
     a("")
+
+    # --- adversarially refuted (context bucket — false positives the red-team removed)
+    a(f"## Refuted by Adversarial Red-Team ({len(rep.refuted)} — moved to context)")
+    a("")
+    a("> Grounded findings that the adversarial verification panel **refuted** as false")
+    a("> positives (benign infrastructure, baseline enumeration). Kept as context for")
+    a("> transparency; *not* counted as active findings. This is GLASSBOX reducing its own")
+    a("> false-positive rate before a human ever sees the report.")
+    a("")
+    if rep.refuted:
+        for f in rep.refuted:
+            why = next((v.get("reason", "") for v in f.skeptic_votes if v.get("vote") == "REFUTE"), "")
+            a(f"- {_md_escape(f.title)}  *(red-team: {why[:110]})*")
+    else:
+        a("*None refuted this run.*")
+    a("")
+
+    # --- investigation depth (SIR-Bench)
+    if rep.investigation_depth:
+        d = rep.investigation_depth
+        a("## Investigation Depth (SIR-Bench methodology)")
+        a("")
+        a(f"- Novel findings (required active tool use): **{d.get('novel', 0)}** / {d.get('total', 0)}")
+        a(f"- Investigation depth score: **{d.get('investigation_depth_score', 0)}**")
+        a("")
 
     # --- degraded tools
     if rep.degraded_tools:

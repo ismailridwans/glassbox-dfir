@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GLASSBOX — Autonomous DFIR Triage</title>
+  <link rel="preconnect" href="data:," />
+  <link rel="stylesheet" href="/static/css/app.css" />
+  <link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'&gt;&lt;rect width='16' height='16' rx='3' fill='%230b0f17'/&gt;&lt;rect x='3' y='3' width='10' height='10' rx='2' fill='none' stroke='%2322d3ee' stroke-width='1.4'/&gt;&lt;/svg&gt;" />
+</head>
+<body>
+  <div id="app" class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26"><rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 12.5l2.6 2.6L16 9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="brand-text">
+          <div class="brand-name">GLASSBOX</div>
+          <div class="brand-sub">DFIR Triage</div>
+        </div>
+      </div>
+      <nav class="nav" id="nav"><!-- views injected here --></nav>
+      <div class="sidebar-foot">
+        <div class="kvline"><span>case</span><b id="foot-case">—</b></div>
+        <div class="kvline"><span>tools</span><b id="foot-tools">—</b></div>
+        <div class="kvline"><span>version</span><b id="foot-version">—</b></div>
+        <div class="tagline">every finding traces to a tool call · evidence is read-only</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn" id="menu-toggle" title="Toggle menu" aria-label="Toggle menu">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <div class="topbar-title">
+          <h1 id="view-title">Dashboard</h1>
+          <span class="view-sub" id="view-sub"></span>
+        </div>
+        <div class="topbar-actions">
+          <span class="status-chip" id="status-chip"><span class="dot"></span><span id="status-text">idle</span></span>
+          <button class="btn btn-primary" id="run-btn">
+            <svg viewBox="0 0 24 24" width="16" height="16"><path d="M7 5l12 7-12 7V5z" fill="currentColor"/></svg>
+            Run Triage
+          </button>
+        </div>
+      </header>
+      <section class="content" id="content"><!-- active view renders here --></section>
+    </main>
+  </div>
+
+  <!-- core -->
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/app.js"></script>
+  <!-- views (self-register via GLASSBOX.registerView) -->
+  <script src="/static/js/views/dashboard.js"></script>
+  <script src="/static/js/views/triage.js"></script>
+  <script src="/static/js/views/findings.js"></script>
+  <script src="/static/js/views/timeline.js"></script>
+  <script src="/static/js/views/attack.js"></script>
+  <script src="/static/js/views/iocs.js"></script>
+  <script src="/static/js/views/discrepancies.js"></script>
+  <script src="/static/js/views/audit.js"></script>
+  <script src="/static/js/views/guardrails.js"></script>
+  <script src="/static/js/views/forensic.js"></script>
+  <script>window.addEventListener('DOMContentLoaded', () => GLASSBOX.boot());</script>
+</body>
+</html>

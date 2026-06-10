@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "glassbox-web",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "glassbox.cli", "serve", "--port", "8787", "--no-browser", "--auto-run"],
+      "port": 8787
+    }
+  ]
+}

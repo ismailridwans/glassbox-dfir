@@ -26,6 +26,8 @@ class GraphState(TypedDict, total=False):
     iocs: Annotated[list[Any], operator.add]  # list[IOC] — accumulates across specialists + iterations
     attack: list[Any]                       # list[AttackMapping]
     quarantined: Annotated[list[Any], operator.add]  # list[Finding] (HALLUCINATED) — accumulates across iters
+    refuted: list[Any]                                # list[Finding] (adversarially REFUTED) — context bucket
+    adversarial: dict[str, Any]                       # panel summary {upheld,demoted,refuted}
 
     mem_view: dict[str, Any]
     disk_view: dict[str, Any]
@@ -34,6 +36,7 @@ class GraphState(TypedDict, total=False):
     gaps: list[str]
     verification: dict[str, Any]
     done: bool
+    report: Any                              # TriageReport produced by the report node
     demo_overclaim: bool                    # demo: emit one over-claim to exercise the gate
 
     # append-only logs

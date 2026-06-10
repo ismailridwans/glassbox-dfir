@@ -213,6 +213,19 @@ class Finding(BaseModel):
         default=False,
         description="CRITICAL findings above threshold require human review before actioning"
     )
+    # Adversarial Verification Panel results
+    adversarial_verdict: Optional[str] = Field(
+        default=None,
+        description="UPHELD (red-team verified) | DEMOTED | REFUTED — set by the adversarial panel"
+    )
+    skeptic_votes: list[dict] = Field(
+        default_factory=list,
+        description="Per-perspective skeptic votes [{perspective, vote, reason}]"
+    )
+    base_severity: Optional[Severity] = Field(
+        default=None,
+        description="Severity before adversarial demotion — lets re-review across iterations be idempotent"
+    )
 
     def is_reportable(self) -> bool:
         return self.confidence in (Confidence.CONFIRMED, Confidence.INFERRED)
@@ -284,6 +297,15 @@ class TriageReport(BaseModel):
     narrative: str = Field(default="", description="Auto-generated incident narrative")
     lessons_summary: dict = Field(default_factory=dict,
                                    description="Persistent learning loop state")
+    # Adversarial Verification Panel
+    refuted: list[Finding] = Field(default_factory=list,
+                                    description="Adversarially REFUTED — kept as context, not active findings")
+    adversarial: dict = Field(default_factory=dict,
+                               description="Panel summary {upheld, demoted, refuted}")
+    # Performance / machine-speed proof
+    duration_ms: int = Field(default=0, description="Total wall-clock triage time in milliseconds")
+    investigation_depth: dict = Field(default_factory=dict,
+                                        description="SIR-Bench novel-vs-parroted finding metric")
 
     # --- convenience rollups for the accuracy report -------------------------
     def confirmed(self) -> list[Finding]:
@@ -291,3 +313,6 @@ class TriageReport(BaseModel):
 
     def inferred(self) -> list[Finding]:
         return [f for f in self.findings if f.confidence == Confidence.INFERRED]
+
+    def red_team_verified(self) -> list[Finding]:
+        return [f for f in self.findings if f.adversarial_verdict == "UPHELD"]

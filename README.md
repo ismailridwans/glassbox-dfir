@@ -37,9 +37,21 @@ cd glassbox-sift
 pip install -e .
 ```
 
-### Run the offline demo (no SIFT required)
+### Launch the web dashboard (recommended — zero extra dependencies)
 ```bash
-glassbox demo
+glassbox serve            # opens http://127.0.0.1:8787 — auto-runs a live triage
+```
+A browser command console with a full feature menu: live execution trace,
+findings explorer, incident timeline, ATT&CK matrix (+ Navigator export), IOCs,
+cross-source discrepancies, the tamper-evident audit trail, a one-click
+guardrail self-test, and court-admissible replay. Built on the Python standard
+library only (`http.server` + Server-Sent Events) — no Node, no build step, no
+extra `pip` install. See [docs/WEB_UI.md](docs/WEB_UI.md).
+
+### Run the offline demo in the terminal (no SIFT required)
+```bash
+glassbox demo             # one-shot triage summary
+glassbox dashboard        # live node-by-node terminal trace
 ```
 
 Expected output:

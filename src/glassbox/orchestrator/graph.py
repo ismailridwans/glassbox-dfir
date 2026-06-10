@@ -18,8 +18,17 @@ Two independent loop guards:
 from __future__ import annotations
 
 import itertools
+import logging
 from functools import partial
 from typing import Optional
+
+# LangGraph's InMemorySaver round-trips state through msgpack and emits a noisy
+# "Deserializing unregistered type" warning for our pydantic models on every
+# super-step. The round-trip is harmless for us (single-process, in-memory), so
+# quiet those specific loggers to keep the live dashboard clean.
+for _ln in ("langgraph", "langgraph.checkpoint", "langgraph_checkpoint",
+            "langgraph.checkpoint.serde", "ormsgpack"):
+    logging.getLogger(_ln).setLevel(logging.ERROR)
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.errors import GraphRecursionError
@@ -40,6 +49,7 @@ def build_graph(ctx: CaseContext, llm: BaseLLM, seq):
     g.add_node("correlate", partial(nodes.correlate, ctx=ctx, seq=seq))
     g.add_node("map_attack", partial(nodes.map_attack, ctx=ctx))
     g.add_node("verify", partial(nodes.verify, ctx=ctx, seq=seq))
+    g.add_node("adversarial_verify", partial(nodes.adversarial_verify, ctx=ctx, seq=seq))
     g.add_node("critique", partial(nodes.critique, ctx=ctx, llm=llm, seq=seq))
     g.add_node("report", partial(nodes.report, ctx=ctx, seq=seq))
 
@@ -49,7 +59,8 @@ def build_graph(ctx: CaseContext, llm: BaseLLM, seq):
     g.add_edge("collect", "correlate")
     g.add_edge("correlate", "map_attack")
     g.add_edge("map_attack", "verify")
-    g.add_edge("verify", "critique")
+    g.add_edge("verify", "adversarial_verify")
+    g.add_edge("adversarial_verify", "critique")
     g.add_conditional_edges("critique", nodes.route_after_critique,
                             {"plan": "plan", "report": "report"})
     g.add_edge("report", END)
@@ -64,6 +75,7 @@ def run_triage(
     write: bool = True,
 ) -> TriageReport:
     """Run the full triage graph for a case and return the TriageReport."""
+    import time
     llm = get_llm(ctx.config.llm_backend, ctx.config.llm_model)
     seq = itertools.count().__next__
     graph = build_graph(ctx, llm, seq)
@@ -78,6 +90,7 @@ def run_triage(
 
     ctx.audit.append("graph_start", llm_backend=llm.name, max_iterations=init["max_iterations"],
                      recursion_limit=ctx.config.recursion_limit)
+    _t0 = time.perf_counter()
     try:
         final = graph.invoke(init, config)
     except GraphRecursionError:
@@ -86,12 +99,17 @@ def run_triage(
         snapshot = graph.get_state(config).values
         final = nodes.report(snapshot, ctx=ctx, seq=seq)
         final = {**snapshot, **final}
+    duration_ms = int((time.perf_counter() - _t0) * 1000)
 
     rep: TriageReport = final.get("report")
     if rep is None:  # extreme fallback
         rep = nodes.report(final, ctx=ctx, seq=seq)["report"]
+    rep.duration_ms = duration_ms
     ctx.audit.append("graph_end", iterations=rep.iterations_used,
                      reportable_findings=len(rep.findings),
+                     refuted=len(rep.refuted),
+                     red_team_verified=len(rep.red_team_verified()),
+                     duration_ms=duration_ms,
                      quarantined=len(rep.quarantined))
 
     if write:

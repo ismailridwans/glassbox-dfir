@@ -302,6 +302,33 @@ def verify(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
             "discrepancies": kept_disc, "verification": summary, "a2a": [msg]}
 
 
+def adversarial_verify(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
+    """Adversarial Verification Panel — red-team every grounded finding.
+
+    A grounded finding can still be a false positive. The panel of skeptic
+    perspectives challenges each one; findings are UPHELD (red-team verified),
+    DEMOTED (kept, severity lowered), or REFUTED (moved to a context bucket).
+    Runs every iteration so corroboration discovered in a later loop can
+    *upgrade* a previously-uncertain finding."""
+    from glassbox.adversarial import AdversarialPanel
+    findings = list(state.get("findings", []))
+    panel = AdversarialPanel()
+    result = panel.review(findings, rawstore=ctx.rawstore,
+                          known_exec_ids=ctx.known_exec_ids(), audit=ctx.audit)
+    summ = result.summary()
+    # Keep ALL reviewed findings in state (verdicts applied in place) so re-review
+    # across self-correction iterations is consistent. The active-vs-refuted split
+    # is computed once, at report time, from each finding's adversarial_verdict.
+    msg = A2AMessage(
+        seq=seq(), from_agent="red_team", to_agent="orchestrator", role="result",
+        summary=(f"Adversarial panel ({len(panel.skeptics)} skeptics): "
+                 f"{summ['upheld']} UPHELD (red-team verified), {summ['demoted']} demoted, "
+                 f"{summ['refuted']} refuted to context."),
+        refs=[v.finding_id for v in result.verdicts if v.verdict == "REFUTED"],
+    )
+    return {"findings": findings, "adversarial": summ, "a2a": [msg]}
+
+
 def critique(state, *, ctx: CaseContext, llm: BaseLLM, seq: Callable[[], int]) -> dict:
     """Self-critique: find concrete gaps and decide whether to loop. The loop
     decision is bounded by max_iterations in route_after_critique."""
@@ -420,7 +447,10 @@ def report(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
     from glassbox.approve import ApprovalGate
     integrity = ctx.integrity.verify()
     chain_valid, chain_errs = ctx.audit.verify_self()
-    findings = state.get("findings", [])
+    all_reviewed = state.get("findings", [])
+    # Split active findings vs. adversarially-refuted (context) at report time.
+    findings = [f for f in all_reviewed if f.adversarial_verdict != "REFUTED"]
+    refuted = [f for f in all_reviewed if f.adversarial_verdict == "REFUTED"]
     discrepancies = state.get("discrepancies", [])
     # Persistent learning: save lessons from quarantined findings for future runs
     quarantined = state.get("quarantined", [])
@@ -473,9 +503,14 @@ def report(state, *, ctx: CaseContext, seq: Callable[[], int]) -> dict:
         timeline=[e.as_dict() for e in timeline],
         narrative=narrative,
         lessons_summary=ctx.lessons.summary(),
+        refuted=refuted,
+        adversarial=state.get("adversarial", {}),
+        investigation_depth=depth,
     )
     ctx.audit.append("report", n_findings=len(findings),
                      n_quarantined=len(state.get("quarantined", [])),
+                     n_refuted=len(state.get("refuted", [])),
+                     red_team_verified=len(rep.red_team_verified()),
                      spoliation_detected=ctx.integrity.spoliation_detected(),
                      audit_chain_valid=chain_valid, chain_errors=chain_errs[:3])
     msg = A2AMessage(seq=seq(), from_agent="orchestrator", to_agent="analyst", role="status",

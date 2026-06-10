@@ -10,6 +10,11 @@ demo_output/
 demo_output_sample/
 benchmark_report.json
 
+# Web dashboard build-time sample payloads (reference only, regenerated on demand)
+src/glassbox/web/static/_samples/
+forensic_bundle/
+navigator_layer*.json
+
 # Large binary evidence extensions — never commit real images
 *.E01
 *.e01

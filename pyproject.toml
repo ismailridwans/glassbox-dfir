@@ -39,6 +39,9 @@ Repository = "https://github.com/YOUR_ORG/glassbox-sift"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"glassbox.web" = ["static/**/*", "static/*"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
