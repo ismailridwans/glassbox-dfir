@@ -163,6 +163,87 @@
     return svg;
   }
 
+  /* interactive area chart with hover tooltip — the signature dashboard element.
+     points = [{label, value}]; opts: {height, color, valueFmt, fullWidth} */
+  let _chartSeq = 0;
+  function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function areaChart(points, opts = {}) {
+    const W = 760, H = opts.height || 240, padL = 30, padR = 14, padT = 16, padB = 30;
+    const ns = "http://www.w3.org/2000/svg";
+    const wrap = el("div", { style: { position: "relative", width: "100%" } });
+    if (!points || !points.length) { wrap.appendChild(empty("No data")); return wrap; }
+    const n = points.length;
+    const maxV = Math.max(1, ...points.map((p) => p.value));
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const xAt = (i) => padL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+    const yAt = (v) => padT + plotH - (v / maxV) * plotH;
+    const color = opts.color || cssVar("--brand");
+    const id = "gc" + (++_chartSeq);
+
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", "100%");
+    svg.setAttribute("height", H); svg.setAttribute("preserveAspectRatio", "none"); svg.style.display = "block";
+    svg.innerHTML = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${color}" stop-opacity="0.26"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>`;
+
+    // horizontal gridlines + y labels
+    for (let g = 0; g <= 4; g++) {
+      const gy = padT + (g / 4) * plotH;
+      const gl = document.createElementNS(ns, "line");
+      gl.setAttribute("x1", padL); gl.setAttribute("x2", W - padR); gl.setAttribute("y1", gy); gl.setAttribute("y2", gy);
+      gl.setAttribute("stroke", cssVar("--border")); gl.setAttribute("stroke-width", "1"); gl.setAttribute("vector-effect", "non-scaling-stroke");
+      svg.appendChild(gl);
+    }
+    const lp = points.map((p, i) => [xAt(i), yAt(p.value)]);
+    const area = document.createElementNS(ns, "path");
+    area.setAttribute("d", `M${lp[0][0]},${padT + plotH} ` + lp.map((p) => `L${p[0]},${p[1]}`).join(" ") + ` L${lp[n - 1][0]},${padT + plotH} Z`);
+    area.setAttribute("fill", `url(#${id})`); svg.appendChild(area);
+    const line = document.createElementNS(ns, "polyline");
+    line.setAttribute("points", lp.map((p) => p.join(",")).join(" "));
+    line.setAttribute("fill", "none"); line.setAttribute("stroke", color); line.setAttribute("stroke-width", "2.4");
+    line.setAttribute("stroke-linecap", "round"); line.setAttribute("stroke-linejoin", "round"); line.setAttribute("vector-effect", "non-scaling-stroke");
+    svg.appendChild(line);
+    // x labels
+    points.forEach((p, i) => {
+      if (n > 8 && i % 2 !== 0 && i !== n - 1) return;
+      const tx = document.createElementNS(ns, "text");
+      tx.setAttribute("x", xAt(i)); tx.setAttribute("y", H - 8); tx.setAttribute("text-anchor", "middle");
+      tx.setAttribute("font-size", "10"); tx.setAttribute("fill", cssVar("--faint"));
+      tx.textContent = String(p.label).slice(0, 6); svg.appendChild(tx);
+    });
+    // hover elements
+    const guide = document.createElementNS(ns, "line");
+    guide.setAttribute("stroke", color); guide.setAttribute("stroke-width", "1"); guide.setAttribute("vector-effect", "non-scaling-stroke");
+    guide.setAttribute("y1", padT); guide.setAttribute("y2", padT + plotH); guide.style.opacity = "0"; svg.appendChild(guide);
+    const dot = document.createElementNS(ns, "circle");
+    dot.setAttribute("r", "4.5"); dot.setAttribute("fill", color); dot.setAttribute("stroke", cssVar("--surface")); dot.setAttribute("stroke-width", "2");
+    dot.style.opacity = "0"; svg.appendChild(dot);
+    wrap.appendChild(svg);
+
+    const tip = el("div", { style: {
+      position: "absolute", pointerEvents: "none", opacity: "0", transform: "translate(-50%,-120%)",
+      background: cssVar("--elevated"), border: "1px solid " + cssVar("--border-hi"), borderRadius: "9px",
+      padding: "7px 11px", fontSize: "12px", whiteSpace: "nowrap", boxShadow: cssVar("--shadow-sm"), transition: "opacity .1s", zIndex: "5" } });
+    wrap.appendChild(tip);
+
+    const fmt = opts.valueFmt || ((v) => v);
+    svg.addEventListener("mousemove", (e) => {
+      const r = svg.getBoundingClientRect();
+      const vbx = ((e.clientX - r.left) / r.width) * W;
+      let i = Math.round(((vbx - padL) / plotW) * (n - 1));
+      i = Math.max(0, Math.min(n - 1, i));
+      const px = xAt(i), py = yAt(points[i].value);
+      guide.setAttribute("x1", px); guide.setAttribute("x2", px); guide.style.opacity = ".5";
+      dot.setAttribute("cx", px); dot.setAttribute("cy", py); dot.style.opacity = "1";
+      tip.innerHTML = `<b style="font-family:var(--mono)">${fmt(points[i].value)}</b> <span class="faint">${esc(points[i].label)}</span>`;
+      tip.style.left = ((px / W) * r.width) + "px";
+      tip.style.top = ((py / H) * r.height) + "px";
+      tip.style.opacity = "1";
+    });
+    svg.addEventListener("mouseleave", () => { guide.style.opacity = "0"; dot.style.opacity = "0"; tip.style.opacity = "0"; });
+    return wrap;
+  }
+
   /* fintech-style bar sparkline: `filled` of n bars colored, rest faint */
   function sparkbars(n, filled, color) {
     const wrap = el("div", { class: "sparkbars" });
@@ -202,7 +283,7 @@
   function skeleton(h = 16, w = "100%") { return el("div", { class: "skel", style: { height: h + "px", width: w } }); }
 
   G.ui = { el, frag, esc, card, stat, badge, sevBadge, pill, table, empty, donut, legend, bars,
-           sparkline, sparkbars, segmented, trend, skeleton,
+           sparkline, sparkbars, areaChart, segmented, trend, skeleton, cssVar,
            sevKey, sevColor, SEV, fmtNum: (n) => (n == null ? "—" : Number(n).toLocaleString()) };
 
   /* ---------------- theme ---------------- */
