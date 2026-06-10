@@ -15,7 +15,19 @@
 .lp-links a { color: var(--muted); font-size: 13.5px; font-weight: 500; padding: 8px 12px; border-radius: 8px; transition: .15s; }
 .lp-links a:hover { color: var(--text); background: var(--hover); }
 .lp-nav .spr { flex: 1; }
-@media (max-width: 860px) { .lp-links { display: none; } }
+.lp-burger { display: none; }
+.lp-drawer { display: none; }
+@media (max-width: 860px) {
+  .lp-links { display: none; }
+  .lp-burger { display: inline-grid; }
+  .lp-nav-inner > .btn-primary { display: none; }   /* moved into the drawer */
+  .lp-drawer { display: flex; flex-direction: column; gap: 4px; padding: 8px 18px 16px;
+    border-top: 1px solid var(--border); background: color-mix(in srgb, var(--bg) 92%, transparent); }
+  .lp-drawer[hidden] { display: none; }
+  .lp-drawer a { color: var(--muted); font-size: 15px; font-weight: 500; padding: 11px 12px; border-radius: 9px; }
+  .lp-drawer a:hover { color: var(--text); background: var(--hover); }
+  .lp-drawer a.btn-primary { color: var(--on-brand); margin-top: 6px; justify-content: center; }
+}
 
 /* sections + bands */
 .sec { padding: 92px 0; }

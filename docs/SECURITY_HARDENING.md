@@ -37,9 +37,9 @@ all mechanical. That property is what makes prompt injection (Threat 1)
 | 1 | Prompt injection via evidence strings reaching LLM narration | High | Medium | Strongly mitigated by design; output-encoding gap |
 | 2 | Path traversal / symlink following into the vault | Medium | High | Traversal mitigated (`vault.resolve`); symlink gap |
 | 3 | Subprocess argument injection | Medium | High | Mitigated (`shell=False` + argv lists); no allowlist |
-| 4 | SIEM clients disable TLS verification (`ssl.CERT_NONE`) | Medium | High | **Not mitigated — real weakness** |
-| 5 | Default HMAC approval key fallback (`_FALLBACK`) | Medium | High | **Not mitigated — real weakness** |
-| 6 | Web dashboard: no auth/CSRF/CSP + triage-trigger POST | Medium | Medium | Partially mitigated (localhost bind, traversal guard) |
+| 4 | SIEM clients disable TLS verification (`ssl.CERT_NONE`) | Medium | High | ✅ **Resolved** — verify by default; insecure only via `GLASSBOX_SIEM_INSECURE_TLS` opt-in |
+| 5 | Default HMAC approval key fallback (`_FALLBACK`) | Medium | High | ✅ **Resolved** — no hardcoded key; random per-process secret + warning |
+| 6 | Web dashboard: no auth/CSRF/CSP + triage-trigger POST | Medium | Medium | ✅ CSP + security headers shipped; auth token still recommended for shared hosts |
 | 7 | DoS: huge evidence / zip bombs / regex backtracking | Medium | Medium | Partially mitigated (timeout); no size/complexity caps |
 | 8 | Evidence read-only enforcement depth | Low | High | Mitigated in layers; OS-level hardening recommended |
 
@@ -212,7 +212,15 @@ paths, and no validation that substituted arguments are well-formed.
 
 ## Threat 4 — SIEM clients disable TLS verification (`ssl.CERT_NONE`)
 
-**Likelihood: Medium. Impact: High. Status: NOT mitigated — a real weakness.**
+**Likelihood: Medium. Impact: High. Status: ✅ RESOLVED (this build).**
+
+> **Resolved.** `siem/client.py` now routes all four `urllib` clients through a
+> single `_ssl_context()` helper that returns a **verifying** default context
+> (`CERT_REQUIRED`, `check_hostname=True`). Self-signed acceptance is an explicit,
+> auditable opt-in via `GLASSBOX_SIEM_INSECURE_TLS=1` — never the silent default.
+> Regression-tested in `tests/test_security.py::TestSiemTls` (verifies by default,
+> insecure only on opt-in, and asserts the source contains exactly one guarded
+> `CERT_NONE`). The original analysis below is retained for the record.
 
 ### The flaw
 
@@ -254,7 +262,16 @@ config, i.e. proper mutual TLS. The weakness is specific to the four
 
 ## Threat 5 — Default HMAC approval key fallback (`_FALLBACK`)
 
-**Likelihood: Medium. Impact: High. Status: NOT mitigated — a real weakness.**
+**Likelihood: Medium. Impact: High. Status: ✅ RESOLVED (this build).**
+
+> **Resolved.** The public, source-committed `_FALLBACK` constant is gone. When
+> `GLASSBOX_APPROVAL_KEY` is unset, `approve/gate.py::_key()` now mints a random
+> 32-byte per-process secret (`secrets.token_bytes(32)`) and emits a
+> `RuntimeWarning` telling the operator to set a stable per-case key for
+> cross-process workflows. An attacker can no longer forge an `ApprovalToken`
+> from the source. Regression-tested in `tests/test_security.py::TestApprovalKey`
+> — including a test that a token forged with the *old* known constant is now
+> rejected. The original analysis below is retained for the record.
 
 ### The flaw
 
@@ -294,7 +311,20 @@ Cryptographic Key).
 
 ## Threat 6 — Web dashboard: no auth/CSRF/CSP, and a write-ish triage POST
 
-**Likelihood: Medium. Impact: Medium.**
+**Likelihood: Medium. Impact: Medium. Status: ◑ PARTIALLY RESOLVED (this build).**
+
+> **CSP + security headers shipped.** Every response (`_json`, `_file`, SSE) now
+> carries a strict `Content-Security-Policy` (`default-src 'self'; script-src
+> 'self'` — **no `'unsafe-inline'`**; the theme bootstrap and boot call were moved
+> into external `theme-boot.js` / `boot.js` so the policy holds), plus
+> `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+> `Referrer-Policy: no-referrer`, `Cross-Origin-Opener-Policy`,
+> `Cross-Origin-Resource-Policy`, and a minimal `Permissions-Policy`. This closes
+> the evidence-text → browser script-execution path (Threat 1's DOM-XSS sink) and
+> blocks clickjacking. Regression-tested in `tests/test_web.py`
+> (`test_security_headers_*`, `test_no_inline_scripts_in_html`). **Still
+> recommended** for shared/multi-user hosts: the per-session auth token and
+> `Origin` check below (the server still binds to `127.0.0.1` by default).
 
 ### What is already mitigated
 
@@ -432,12 +462,12 @@ blockers as layer 1 and is honest that `harden()` is layer 2 defense-in-depth.
 
 ## Consolidated recommendation priority
 
-| Priority | Action | Threat | Type |
-|----------|--------|--------|------|
-| P0 | Fail closed when `GLASSBOX_APPROVAL_KEY` is unset; per-case random secret | 5 | Code fix |
-| P0 | TLS verification on by default; self-signed via explicit per-backend opt-in / CA pin | 4 | Code fix |
-| P1 | Dashboard auth token + `Origin` check; CSP/`nosniff` on static responses | 6 | Code fix |
-| P1 | Strict binary allowlist in `ToolPaths`; `--` arg terminator; numeric validation | 3 | Hardening |
+| Priority | Action | Threat | Type | Status |
+|----------|--------|--------|------|--------|
+| P0 | ~~Hardcoded `GLASSBOX_APPROVAL_KEY` fallback~~ → random per-process secret + warning | 5 | Code fix | ✅ Done |
+| P0 | ~~Unconditional `CERT_NONE`~~ → TLS verification on by default; insecure via explicit opt-in | 4 | Code fix | ✅ Done |
+| P1 | ~~CSP/`nosniff`/anti-clickjacking headers on all responses~~ (auth token still open) | 6 | Code fix | ◑ Headers done |
+| P1 | Strict binary allowlist in `ToolPaths`; `--` arg terminator; numeric validation | 3 | Hardening | Open |
 | P1 | Bound IOC regexes + extraction time budget; evidence/output size caps | 7 | Code fix |
 | P2 | Symlink/`O_NOFOLLOW` handling + close resolve→open TOCTOU in `vault.resolve`/`open_ro` | 2 | Hardening |
 | P2 | Uniform output-encoding of evidence strings at all sinks; injection-aware system prompt | 1 | Hardening |
@@ -451,7 +481,10 @@ authority is bounded by code, not by prompts.** The deterministic core
 (`verify/hallucination.py`), the absent write surface (`mcp_server/`), and the
 tested read-only posture (`evidence/integrity.py`) mean prompt injection cannot
 turn into agent action and unsupported claims cannot become findings. The two
-items that genuinely undercut that posture are **non-architectural
-misconfigurations**: the public HMAC fallback key (Threat 5) and the
-unconditional TLS-verification bypass (Threat 4). Both are small, localized code
-fixes and should be treated as P0.
+items that previously undercut that posture were **non-architectural
+misconfigurations** — the public HMAC fallback key (Threat 5) and the
+unconditional TLS-verification bypass (Threat 4). **Both are now fixed** (random
+per-process approval key; TLS verifying by default), each covered by a regression
+test in `tests/test_security.py`, and the web layer ships a strict CSP plus
+security headers (Threat 6). The remaining open items (P1/P2 above) are
+defense-in-depth hardening, not breaks in the core trust boundary.

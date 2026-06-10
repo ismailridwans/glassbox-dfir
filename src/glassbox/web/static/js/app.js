@@ -375,8 +375,15 @@
   G.boot = async function () {
     initTheme();
     document.getElementById("run-btn").addEventListener("click", runTriage);
+    const app = document.getElementById("app");
+    const isMobile = () => window.matchMedia("(max-width: 900px)").matches;
     document.getElementById("menu-toggle").addEventListener("click", () =>
-      document.getElementById("app").classList.toggle("show-nav"));
+      app.classList.toggle(isMobile() ? "show-nav" : "collapsed"));
+    // mobile drawer: tap the scrim or a nav link to close
+    app.addEventListener("click", (e) => {
+      if (!isMobile() || !app.classList.contains("show-nav")) return;
+      if (e.target === app || e.target.closest(".nav-item")) app.classList.remove("show-nav");
+    });
     const tt = document.getElementById("theme-toggle");
     if (tt) tt.addEventListener("click", () => { G.theme.toggle(); render(currentId()); });
     window.addEventListener("hashchange", () => render(currentId()));

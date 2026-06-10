@@ -16,20 +16,40 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
+import warnings
 from dataclasses import dataclass
 from typing import Optional
 
 from glassbox.models import Confidence, EpistemicType, Finding, Severity
 
-# The HMAC key is read from the environment or derived from the case ID.
-# In production: use a per-case randomly generated secret stored securely.
+# The HMAC key signs operator approval tokens. It is read from the environment;
+# if unset, GLASSBOX generates a RANDOM per-process key rather than falling back
+# to a hardcoded constant. A hardcoded fallback would be public (it's in the
+# source), so anyone could forge an approval token and bypass the human-review
+# gate — exactly the kind of guardrail-bypass the hackathon asks us to defend.
+# A random per-process key removes that: tokens are unforgeable, and they simply
+# don't validate across separate processes unless the operator sets a stable
+# secret, which the warning below tells them to do.
 _ENV_KEY = "GLASSBOX_APPROVAL_KEY"
-_FALLBACK = b"glassbox-approval-key-change-in-prod"
+_RUNTIME_KEY: Optional[bytes] = None
 
 
 def _key() -> bytes:
     raw = os.getenv(_ENV_KEY, "")
-    return raw.encode("utf-8") if raw else _FALLBACK
+    if raw:
+        return raw.encode("utf-8")
+    global _RUNTIME_KEY
+    if _RUNTIME_KEY is None:
+        _RUNTIME_KEY = secrets.token_bytes(32)
+        warnings.warn(
+            f"{_ENV_KEY} is not set; using a random per-process approval key. "
+            "Approval tokens will not validate across separate processes. Set "
+            f"{_ENV_KEY} to a per-case secret for cross-process operator workflows.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    return _RUNTIME_KEY
 
 
 @dataclass

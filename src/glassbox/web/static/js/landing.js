@@ -73,6 +73,19 @@
     if (btn) btn.addEventListener("click", () => set(get() === "dark" ? "light" : "dark"));
   }
 
+  function mobileMenu() {
+    const burger = document.getElementById("lp-burger");
+    const drawer = document.getElementById("lp-drawer");
+    if (!burger || !drawer) return;
+    const close = () => { drawer.hidden = true; burger.setAttribute("aria-expanded", "false"); };
+    burger.addEventListener("click", () => {
+      const open = drawer.hidden;
+      drawer.hidden = !open;
+      burger.setAttribute("aria-expanded", String(open));
+    });
+    drawer.querySelectorAll("a").forEach((a) => a.addEventListener("click", close));
+  }
+
   function reveal() {
     const els = document.querySelectorAll(".reveal");
     if (!("IntersectionObserver" in window)) { els.forEach((e) => e.classList.add("in")); return; }
@@ -82,5 +95,5 @@
     els.forEach((e) => io.observe(e));
   }
 
-  window.addEventListener("DOMContentLoaded", () => { buildPipe(); buildMarquee(); runTerminal(); theme(); reveal(); });
+  window.addEventListener("DOMContentLoaded", () => { buildPipe(); buildMarquee(); runTerminal(); theme(); mobileMenu(); reveal(); });
 })();

@@ -97,8 +97,8 @@
           el("div", { style: { marginTop: "16px", display: "grid", gap: "9px" } }, [
             el("button", { class: "btn btn-primary", style: { justifyContent: "center" }, onclick: () => GLASSBOX.runTriage() }, [
               el("span", { html: "<svg viewBox='0 0 24 24' width='15' height='15'><path d='M7 5l12 7-12 7V5z' fill='currentColor'/></svg>" }), "Run Triage"]),
-            el("button", { class: "btn", style: { justifyContent: "center" }, onclick: () => ctx.go("forensic"), text: "Verify Replay" }),
-            el("button", { class: "btn", style: { justifyContent: "center" }, onclick: () => ctx.go("attack"), text: "Export ATT&CK Navigator" }),
+            el("button", { class: "btn", style: { justifyContent: "center" }, onclick: () => ctx.go("forensic"), text: "Verify replay →" }),
+            el("button", { class: "btn", style: { justifyContent: "center" }, onclick: () => ctx.go("attack"), text: "ATT&CK Navigator →" }),
           ]),
         ]),
       ]);

@@ -89,6 +89,11 @@ def _get(url):
         return r.status, r.headers.get("Content-Type", ""), r.read()
 
 
+def _headers(url):
+    with urllib.request.urlopen(url, timeout=10) as r:
+        return dict(r.headers)
+
+
 class TestHTTP:
     def test_index(self, server):
         st, ct, body = _get(server + "/")
@@ -150,3 +155,31 @@ class TestHTTP:
         with pytest.raises(urllib.error.HTTPError) as exc:
             _get(server + "/api/nope")
         assert exc.value.code == 404
+
+    # ---- security hardening (architectural guardrail) ----
+    def test_security_headers_on_pages(self, server):
+        h = _headers(server + "/")
+        csp = h.get("Content-Security-Policy", "")
+        # strict CSP: scripts only from our own origin, NOT inline
+        assert "script-src 'self'" in csp
+        assert "script-src 'self' 'unsafe-inline'" not in csp
+        assert "object-src 'none'" in csp
+        assert "base-uri 'none'" in csp
+        assert "frame-ancestors 'none'" in csp
+        assert h.get("X-Content-Type-Options") == "nosniff"
+        assert h.get("X-Frame-Options") == "DENY"
+        assert h.get("Referrer-Policy") == "no-referrer"
+
+    def test_security_headers_on_static_and_api(self, server):
+        for path in ("/static/css/app.css", "/static/js/app.js", "/api/state"):
+            h = _headers(server + path)
+            assert "Content-Security-Policy" in h, f"no CSP on {path}"
+            assert h.get("X-Content-Type-Options") == "nosniff", f"no nosniff on {path}"
+
+    def test_no_inline_scripts_in_html(self, server):
+        # a single strict CSP only holds if the HTML carries no inline <script>…</script>
+        for page in ("/", "/app"):
+            _, _, body = _get(server + page)
+            text = body.decode("utf-8")
+            assert "<script>" not in text, f"inline <script> block present in {page}"
+            assert "theme-boot.js" in text, f"theme bootstrap not externalized in {page}"

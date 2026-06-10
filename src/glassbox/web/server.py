@@ -28,16 +28,53 @@ mimetypes.add_type("text/css", ".css")
 mimetypes.add_type("image/svg+xml", ".svg")
 
 
+# Content-Security-Policy: a forensic dashboard renders attacker-controlled
+# strings (malware file names, command lines, IOCs pulled from evidence), so the
+# browser is a real injection surface. This policy is architectural defense in
+# depth: script may load ONLY from our own origin (no 'unsafe-inline'; the theme
+# bootstrap and boot call live in external .js files for exactly this reason), so
+# an injected <script> or data:/external script cannot execute. Inline *style*
+# attributes are permitted because the SPA composes them programmatically and
+# style injection is far lower risk than script execution.
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; "
+    "font-src 'self'; "
+    "connect-src 'self'; "
+    "object-src 'none'; "
+    "base-uri 'none'; "
+    "form-action 'none'; "
+    "frame-ancestors 'none'"
+)
+
+_SECURITY_HEADERS = {
+    "Content-Security-Policy": _CSP,
+    "X-Content-Type-Options": "nosniff",        # no MIME sniffing
+    "X-Frame-Options": "DENY",                  # legacy clickjacking defense
+    "Referrer-Policy": "no-referrer",           # never leak the case URL
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+}
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = f"GLASSBOX/{__version__}"
 
     # ----- helpers ------------------------------------------------------ #
+    def _security_headers(self) -> None:
+        for name, value in _SECURITY_HEADERS.items():
+            self.send_header(name, value)
+
     def _json(self, obj, status: int = 200) -> None:
         body = json.dumps(obj, default=str).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self._security_headers()
         self.end_headers()
         self.wfile.write(body)
 
@@ -67,6 +104,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")  # always serve the latest asset
+        self._security_headers()
         self.end_headers()
         self.wfile.write(data)
 
@@ -147,6 +185,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-store")
             self.send_header("Connection", "keep-alive")
             self.send_header("X-Accel-Buffering", "no")
+            self._security_headers()
             self.end_headers()
             for ev in _SESSION.stream_run():
                 self._sse_event(ev)

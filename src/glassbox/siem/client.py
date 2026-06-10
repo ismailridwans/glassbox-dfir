@@ -20,8 +20,29 @@ Usage in GLASSBOX CLI:
 from __future__ import annotations
 
 import os
+import ssl
 from dataclasses import dataclass, field
 from typing import Any, Optional
+
+
+def _ssl_context() -> "ssl.SSLContext":
+    """TLS context for SIEM calls — **verifying by default**.
+
+    A forensic agent that talks to a SIEM over an unverified TLS channel can be
+    MITM'd: an attacker on-path could feed it forged alerts or capture the case
+    context it sends. So GLASSBOX verifies the server certificate by default.
+
+    Some IR labs run SIEMs with self-signed certs. For those, verification can be
+    disabled — but only by an explicit, opt-in environment variable, so the
+    insecure mode is a documented operator decision, never a silent default:
+
+        GLASSBOX_SIEM_INSECURE_TLS=1   # accept self-signed / unverified certs
+    """
+    ctx = ssl.create_default_context()
+    if os.getenv("GLASSBOX_SIEM_INSECURE_TLS", "").lower() in ("1", "true", "yes"):
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+    return ctx
 
 
 @dataclass
@@ -70,9 +91,7 @@ class WazuhClient:
                 "Authorization": f"Bearer {self.token}",
                 "Content-Type": "application/json",
             })
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE  # accept self-signed in IR env
+            ctx = _ssl_context()
             with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
                 body = json.loads(resp.read())
             items = body.get("data", {}).get("affected_items", [])
@@ -92,8 +111,7 @@ class WazuhClient:
             req = urllib.request.Request(url, headers={
                 "Authorization": f"Bearer {self.token}",
             })
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
+            ctx = _ssl_context()
             with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
                 body = json.loads(resp.read())
             items = body.get("data", {}).get("affected_items", [])
@@ -127,8 +145,7 @@ class ElasticClient:
             if self.api_key:
                 headers["Authorization"] = f"ApiKey {self.api_key}"
             req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
+            ctx = _ssl_context()
             with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
                 result = json.loads(resp.read())
             hits = [h["_source"] for h in result.get("hits", {}).get("hits", [])]
@@ -244,8 +261,7 @@ class SplunkClient:
                          "Content-Type": "application/x-www-form-urlencoded"},
                 method="POST",
             )
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
+            ctx = _ssl_context()
             with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
                 sid = json.loads(resp.read()).get("sid", "")
             if not sid:
