@@ -5,13 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GLASSBOX — Autonomous DFIR Triage</title>
   <link rel="preconnect" href="data:," />
+  <script>
+    /* set theme before first paint to avoid a flash */
+    (function () {
+      try {
+        var t = localStorage.getItem("glassbox-theme");
+        if (!t) t = (window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+    })();
+  </script>
   <link rel="stylesheet" href="/static/css/app.css" />
   <link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'&gt;&lt;rect width='16' height='16' rx='3' fill='%230b0f17'/&gt;&lt;rect x='3' y='3' width='10' height='10' rx='2' fill='none' stroke='%2322d3ee' stroke-width='1.4'/&gt;&lt;/svg&gt;" />
 </head>
 <body>
   <div id="app" class="app">
     <aside class="sidebar" id="sidebar">
-      <div class="brand">
+      <a class="brand" href="/" title="Back to home" style="color:inherit;text-decoration:none">
         <div class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="26" height="26"><rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 12.5l2.6 2.6L16 9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
@@ -19,7 +29,7 @@
           <div class="brand-name">GLASSBOX</div>
           <div class="brand-sub">DFIR Triage</div>
         </div>
-      </div>
+      </a>
       <nav class="nav" id="nav"><!-- views injected here --></nav>
       <div class="sidebar-foot">
         <div class="kvline"><span>case</span><b id="foot-case">—</b></div>
@@ -39,6 +49,10 @@
           <span class="view-sub" id="view-sub"></span>
         </div>
         <div class="topbar-actions">
+          <button class="icon-btn theme-toggle" id="theme-toggle" title="Toggle light / dark" aria-label="Toggle theme">
+            <svg class="moon" viewBox="0 0 24 24" width="18" height="18"><path d="M21 12.8A8.5 8.5 0 1111.2 3a6.6 6.6 0 009.8 9.8z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+            <svg class="sun" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          </button>
           <span class="status-chip" id="status-chip"><span class="dot"></span><span id="status-text">idle</span></span>
           <button class="btn btn-primary" id="run-btn">
             <svg viewBox="0 0 24 24" width="16" height="16"><path d="M7 5l12 7-12 7V5z" fill="currentColor"/></svg>

@@ -66,6 +66,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")  # always serve the latest asset
         self.end_headers()
         self.wfile.write(data)
 
@@ -102,7 +103,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._triage_stream()
         if path.startswith("/api/"):
             return self._json({"error": "unknown endpoint"}, 404)
-        # static
+        # pages: landing at "/", dashboard SPA under "/app"
+        if path == "/" or path == "/index.html":
+            return self._file("landing.html")
+        if path == "/app" or path.startswith("/app/") or path == "/app.html":
+            return self._file("index.html")
+        # static + everything else
         return self._file(path)
 
     def do_POST(self):

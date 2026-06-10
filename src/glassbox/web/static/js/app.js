@@ -102,7 +102,8 @@
       if (opts.round) c.setAttribute("stroke-linecap", "round");
       return c;
     };
-    svg.appendChild(ring("#16203a", 1, `${C} 0`));
+    const track = getComputedStyle(document.documentElement).getPropertyValue("--elevated").trim() || "#16203a";
+    svg.appendChild(ring(track, 1, `${C} 0`));
     segments.forEach((s) => {
       const frac = (s.value || 0) / total;
       if (frac <= 0) return;
@@ -136,8 +137,92 @@
       ])));
   }
 
+  /* line sparkline from an array of numbers */
+  function sparkline(values, opts = {}) {
+    const w = opts.width || 120, h = opts.height || 34, pad = 2;
+    const v = (values && values.length) ? values : [0, 0];
+    const min = Math.min(...v), max = Math.max(...v), span = (max - min) || 1;
+    const stepX = (w - pad * 2) / Math.max(1, v.length - 1);
+    const pts = v.map((y, i) => [pad + i * stepX, h - pad - ((y - min) / span) * (h - pad * 2)]);
+    const color = opts.color || getComputedStyle(document.documentElement).getPropertyValue("--brand").trim();
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", `0 0 ${w} ${h}`); svg.setAttribute("width", opts.fullWidth ? "100%" : w);
+    svg.setAttribute("height", h); svg.setAttribute("class", "spark"); svg.setAttribute("preserveAspectRatio", "none");
+    if (opts.fill) {
+      const area = document.createElementNS(ns, "path");
+      area.setAttribute("d", `M${pts[0][0]},${h} ` + pts.map((p) => `L${p[0]},${p[1]}`).join(" ") + ` L${pts[pts.length-1][0]},${h} Z`);
+      area.setAttribute("fill", color); area.setAttribute("opacity", "0.12"); svg.appendChild(area);
+    }
+    const line = document.createElementNS(ns, "polyline");
+    line.setAttribute("points", pts.map((p) => p.join(",")).join(" "));
+    line.setAttribute("fill", "none"); line.setAttribute("stroke", color);
+    line.setAttribute("stroke-width", opts.weight || 1.8); line.setAttribute("stroke-linecap", "round");
+    line.setAttribute("stroke-linejoin", "round"); line.setAttribute("vector-effect", "non-scaling-stroke");
+    svg.appendChild(line);
+    return svg;
+  }
+
+  /* fintech-style bar sparkline: `filled` of n bars colored, rest faint */
+  function sparkbars(n, filled, color) {
+    const wrap = el("div", { class: "sparkbars" });
+    const c = color || getComputedStyle(document.documentElement).getPropertyValue("--brand").trim();
+    for (let i = 0; i < n; i++) {
+      const bar = el("i");
+      const hpct = 35 + Math.round(((Math.sin(i * 1.7) + 1) / 2) * 55) + (i % 3 === 0 ? 10 : 0);
+      bar.style.height = Math.min(100, hpct) + "%";
+      if (i < filled) bar.style.background = c;
+      wrap.appendChild(bar);
+    }
+    return wrap;
+  }
+
+  /* segmented control: options=[{label,value}] or [str]; onChange(value) */
+  function segmented(options, active, onChange) {
+    const seg = el("div", { class: "seg" });
+    options.forEach((o) => {
+      const val = o.value != null ? o.value : o;
+      const lab = o.label != null ? o.label : o;
+      const b = el("button", { class: "seg-btn" + (val === active ? " active" : ""), text: lab,
+        onclick: () => { seg.querySelectorAll(".seg-btn").forEach((x) => x.classList.remove("active")); b.classList.add("active"); onChange && onChange(val); } });
+      seg.appendChild(b);
+    });
+    return seg;
+  }
+
+  /* up/down trend pill */
+  function trend(value, opts = {}) {
+    const up = Number(value) >= 0;
+    return el("span", { class: "trend " + (up ? "up" : "down") }, [
+      el("span", { class: "car", text: up ? "▲" : "▼" }),
+      (up ? "+" : "") + value + (opts.suffix || ""),
+    ]);
+  }
+
+  function skeleton(h = 16, w = "100%") { return el("div", { class: "skel", style: { height: h + "px", width: w } }); }
+
   G.ui = { el, frag, esc, card, stat, badge, sevBadge, pill, table, empty, donut, legend, bars,
+           sparkline, sparkbars, segmented, trend, skeleton,
            sevKey, sevColor, SEV, fmtNum: (n) => (n == null ? "—" : Number(n).toLocaleString()) };
+
+  /* ---------------- theme ---------------- */
+  const THEME_KEY = "glassbox-theme";
+  function applyTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
+  }
+  function initTheme() {
+    let t;
+    try { t = localStorage.getItem(THEME_KEY); } catch (e) {}
+    if (!t) t = (window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", t);
+    return t;
+  }
+  G.theme = {
+    get: () => document.documentElement.getAttribute("data-theme") || "dark",
+    set: applyTheme,
+    toggle: () => applyTheme(G.theme.get() === "dark" ? "light" : "dark"),
+  };
 
   /* ---------------- state + router ---------------- */
   const ctx = { state: {}, report: {}, api: G.api, ui: G.ui };
@@ -207,9 +292,12 @@
   G.runTriage = runTriage;
 
   G.boot = async function () {
+    initTheme();
     document.getElementById("run-btn").addEventListener("click", runTriage);
     document.getElementById("menu-toggle").addEventListener("click", () =>
       document.getElementById("app").classList.toggle("show-nav"));
+    const tt = document.getElementById("theme-toggle");
+    if (tt) tt.addEventListener("click", () => { G.theme.toggle(); render(currentId()); });
     window.addEventListener("hashchange", () => render(currentId()));
 
     await loadData();

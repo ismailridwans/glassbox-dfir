@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GLASSBOX — Autonomous DFIR triage at machine speed</title>
+  <meta name="description" content="GLASSBOX is a read-only, self-correcting autonomous DFIR triage agent for the SANS SIFT Workstation. Every finding traces to a tool call; a red-team challenges every claim; the evidence is architecturally untouchable." />
+  <script>
+    (function () {
+      try { var t = localStorage.getItem("glassbox-theme");
+        if (!t) t = (window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/css/app.css" />
+  <link rel="stylesheet" href="/static/css/landing.css" />
+  <link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'&gt;&lt;rect width='16' height='16' rx='3' fill='%236d5efc'/&gt;&lt;path d='M5 8.2l2 2L11 6' fill='none' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/&gt;&lt;/svg&gt;" />
+</head>
+<body class="lp">
+
+  <!-- ============ NAV ============ -->
+  <nav class="lp-nav">
+    <div class="lp-nav-inner">
+      <a class="lp-brand" href="/">
+        <span class="mk"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 12.5l2.6 2.6L16 9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        GLASSBOX
+      </a>
+      <div class="lp-links">
+        <a href="#run">Run it</a>
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="#trust">Guardrails</a>
+      </div>
+      <span class="spr"></span>
+      <button class="icon-btn theme-toggle" id="theme-toggle" title="Toggle light / dark" aria-label="Toggle theme">
+        <svg class="moon" viewBox="0 0 24 24" width="18" height="18"><path d="M21 12.8A8.5 8.5 0 1111.2 3a6.6 6.6 0 009.8 9.8z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      </button>
+      <a class="btn btn-primary" href="/app">Launch Dashboard</a>
+    </div>
+  </nav>
+
+  <!-- ============ HERO ============ -->
+  <header class="hero">
+    <div class="lp-wrap">
+      <span class="eyebrow"><span class="dot"></span> SANS SIFT · Protocol SIFT · FIND&nbsp;EVIL!</span>
+      <h1>Find evil at <span class="grad">machine speed</span> — without hallucinating.</h1>
+      <p class="lead">GLASSBOX is an autonomous, read-only DFIR triage agent. It works disk, memory, EVTX and PCAP in seconds — every finding traces back to the tool call that produced it, a red-team challenges every claim, and the evidence is architecturally untouchable.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-lg" href="/app">Launch Dashboard</a>
+        <a class="btn btn-lg" href="#run">▶ See it run</a>
+      </div>
+      <div class="hero-trust">
+        <span>An AI adversary reaches domain control in <b>~8&nbsp;minutes</b>.</span>
+        <span>GLASSBOX triages a full case in <b>&lt;&nbsp;1&nbsp;second</b>.</span>
+      </div>
+
+      <!-- hero product shot (theme-aware mock dashboard) -->
+      <div class="hero-shot reveal">
+        <div class="browser">
+          <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="url">glassbox · /app#/dashboard</div></div>
+          <div class="browser-body">
+            <div class="mock-metrics">
+              <div class="card metric" style="padding:13px 15px">
+                <div class="metric-name">Findings</div><div class="metric-value" style="font-size:22px">61</div>
+                <div class="sparkbars" style="height:22px"><i style="height:40%;background:var(--brand)"></i><i style="height:62%;background:var(--brand)"></i><i style="height:50%;background:var(--brand)"></i><i style="height:82%;background:var(--brand)"></i><i style="height:58%;background:var(--brand)"></i><i style="height:90%;background:var(--brand)"></i><i style="height:54%;background:var(--brand)"></i><i style="height:70%"></i><i style="height:46%"></i><i style="height:64%"></i></div>
+              </div>
+              <div class="card metric" style="padding:13px 15px">
+                <div class="metric-name">Red-Team ✓</div><div class="metric-value" style="font-size:22px;color:var(--up)">41</div>
+                <div class="sparkbars" style="height:22px"><i style="height:50%;background:var(--up)"></i><i style="height:70%;background:var(--up)"></i><i style="height:60%;background:var(--up)"></i><i style="height:85%;background:var(--up)"></i><i style="height:72%;background:var(--up)"></i><i style="height:55%"></i><i style="height:40%"></i><i style="height:66%"></i><i style="height:48%"></i><i style="height:58%"></i></div>
+              </div>
+              <div class="card metric" style="padding:13px 15px">
+                <div class="metric-name">Quarantined</div><div class="metric-value" style="font-size:22px;color:var(--med)">1</div>
+                <div class="sparkbars" style="height:22px"><i style="height:30%;background:var(--med)"></i><i style="height:20%"></i><i style="height:25%"></i><i style="height:18%"></i><i style="height:22%"></i><i style="height:16%"></i><i style="height:24%"></i><i style="height:19%"></i><i style="height:21%"></i><i style="height:17%"></i></div>
+              </div>
+              <div class="card metric" style="padding:13px 15px">
+                <div class="metric-name">ATT&CK</div><div class="metric-value" style="font-size:22px;color:var(--low)">27</div>
+                <div class="sparkbars" style="height:22px"><i style="height:55%;background:var(--low)"></i><i style="height:42%;background:var(--low)"></i><i style="height:70%;background:var(--low)"></i><i style="height:60%;background:var(--low)"></i><i style="height:80%;background:var(--low)"></i><i style="height:50%"></i><i style="height:64%"></i><i style="height:46%"></i><i style="height:72%"></i><i style="height:58%"></i></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="mock-row" style="border-bottom:1px solid var(--border);font-weight:700;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em">
+                <span>Recent findings</span><span>severity · ATT&CK · provenance</span>
+              </div>
+              <div class="mock-row"><span class="nm"><span class="mock-ic" style="background:var(--down-bg);color:var(--down)">!</span> C2 named pipe in reader_sl.exe (PID 1640)</span><span class="row"><span class="badge crit">CRITICAL</span><span class="pill">T1071.001</span></span></div>
+              <div class="mock-row"><span class="nm"><span class="mock-ic">RW</span> Injected / RWX code in explorer.exe</span><span class="row"><span class="badge high">HIGH</span><span class="pill">T1055</span></span></div>
+              <div class="mock-row"><span class="nm"><span class="mock-ic">7045</span> New service installed — Cridex</span><span class="row"><span class="badge good">RED-TEAM ✓</span><span class="pill">T1543.003</span></span></div>
+              <div class="mock-row"><span class="nm"><span class="mock-ic">1102</span> Security event log cleared</span><span class="row"><span class="badge high">HIGH</span><span class="pill">T1070.001</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ QUOTE ============ -->
+  <section class="sec band">
+    <div class="lp-wrap">
+      <div class="quote reveal">
+        <blockquote>“Claude <span class="hl">frequently overstated findings and occasionally fabricated data</span> during autonomous operations… This remains an obstacle to fully autonomous cyberattacks.”</blockquote>
+        <div class="by">— Anthropic Threat Intelligence, <b>GTG-1002 report</b>, November 2025</div>
+        <p class="muted" style="max-width:60ch;margin:22px auto 0;font-size:15px">Hallucination is the defender's structural problem too. GLASSBOX engineers it out: nothing reaches a report unless a tool execution physically backs it — and a red-team has tried to refute it.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STATS ============ -->
+  <section class="sec tight">
+    <div class="lp-wrap">
+      <div class="stat-row reveal">
+        <div class="s"><div class="v grad">30</div><div class="l">read-only tools</div></div>
+        <div class="s"><div class="v">5</div><div class="l">evidence types</div></div>
+        <div class="s"><div class="v">27</div><div class="l">ATT&CK techniques</div></div>
+        <div class="s"><div class="v">0</div><div class="l">evidence bytes modified</div></div>
+        <div class="s"><div class="v">135</div><div class="l">tests passing</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RUN IT (spotlight) ============ -->
+  <section class="sec spotlight" id="run">
+    <div class="lp-wrap">
+      <div class="split2">
+        <div class="reveal">
+          <div class="kicker">Watch it think</div>
+          <h3 style="color:#fff">Run a triage and trace every step.</h3>
+          <p>A LangGraph state machine drives the analysis live over Server-Sent Events. You see the planner sequence tools, the hallucination gate quarantine an over-claim, the red-team refute a false positive, and the self-correction loop decide to dig deeper — node by node.</p>
+          <ul class="lead-bullets">
+            <li><span class="ck">✓</span> Deterministic pipeline — the model proposes, the graph disposes.</li>
+            <li><span class="ck">✓</span> Bounded self-correction: a hard max-iterations counter, in code.</li>
+            <li><span class="ck">✓</span> Every node logged to a hash-chained, tamper-evident trail.</li>
+          </ul>
+          <div style="margin-top:24px"><a class="btn btn-primary btn-lg" href="/app#/triage">▶ Launch a live triage</a></div>
+        </div>
+        <div class="reveal">
+          <div class="browser">
+            <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="url">glassbox · /app#/triage</div></div>
+            <div class="browser-body">
+              <div class="trace">
+                <div class="trace-row"><div class="t-time">0.02s</div><div class="t-ic">▸</div><div><div class="t-label" style="color:#fff">PLAN · iter 1</div><div class="t-detail">13 steps — pslist, netscan, evtx_hunt…</div></div></div>
+                <div class="trace-row"><div class="t-time">0.08s</div><div class="t-ic">#</div><div><div class="t-label" style="color:#fff">COLLECT</div><div class="t-detail">specialists ran; 35 findings</div></div></div>
+                <div class="trace-row"><div class="t-time">0.11s</div><div class="t-ic">~</div><div><div class="t-label" style="color:#fff">CORRELATE</div><div class="t-detail">hidden process: PID 1520 (psscan ≠ pslist)</div></div></div>
+                <div class="trace-row verify"><div class="t-time">0.14s</div><div class="t-ic">✓</div><div><div class="t-label" style="color:#fff">VERIFY</div><div class="t-detail">36 confirmed · <span style="color:#fb7185">1 hallucinated → quarantined</span></div></div></div>
+                <div class="trace-row redteam"><div class="t-time">0.18s</div><div class="t-ic">⚔</div><div><div class="t-label" style="color:#fff">RED-TEAM</div><div class="t-detail">41 upheld · 20 demoted · <span style="color:#fb7185">3 refuted (false positives)</span></div></div></div>
+                <div class="trace-row"><div class="t-time">0.21s</div><div class="t-ic">?</div><div><div class="t-label" style="color:#fff">SELF-CRITIQUE</div><div class="t-detail">gap found → re-running with psscan, malfind</div></div></div>
+                <div class="trace-row"><div class="t-time">0.46s</div><div class="t-ic">=</div><div><div class="t-label" style="color:#34d399">REPORT</div><div class="t-detail">triage complete · audit chain VALID</div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TOOL STRIP ============ -->
+  <section class="sec tight band">
+    <div class="lp-wrap">
+      <div class="center muted" style="font-size:12.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:22px">Built on the SANS SIFT toolchain — wrapped as typed, read-only functions</div>
+      <div class="logos reveal">
+        <span class="logo-chip"><span class="d"></span> Volatility 3</span>
+        <span class="logo-chip"><span class="d"></span> The Sleuth Kit</span>
+        <span class="logo-chip"><span class="d"></span> Hayabusa</span>
+        <span class="logo-chip"><span class="d"></span> EvtxECmd</span>
+        <span class="logo-chip"><span class="d"></span> tshark</span>
+        <span class="logo-chip"><span class="d"></span> RegRipper</span>
+        <span class="logo-chip"><span class="d"></span> YARA</span>
+        <span class="logo-chip"><span class="d"></span> Plaso</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURES ============ -->
+  <section class="sec" id="features">
+    <div class="lp-wrap">
+      <div class="sec-head reveal">
+        <div class="kicker">What makes it different</div>
+        <h2>A DFIR analyst that can't lie — and can't touch the evidence.</h2>
+        <p>Eight capabilities the baseline Protocol SIFT — and most competitors — don't have, working together end to end.</p>
+      </div>
+      <div class="feat-grid" id="feat-grid"></div>
+    </div>
+  </section>
+
+  <!-- ============ TRACEABILITY split ============ -->
+  <section class="sec band">
+    <div class="lp-wrap">
+      <div class="split2">
+        <div class="reveal">
+          <div class="browser full">
+            <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="url">glassbox · /app#/findings</div></div>
+            <div class="browser-body">
+              <div class="card sev-rail crit" style="padding:14px 16px">
+                <div class="row" style="justify-content:space-between"><b>C2 named pipe in PID 1640 (reader_sl.exe)</b><span class="badge crit">CRITICAL</span></div>
+                <div class="row wrap" style="gap:6px;margin:9px 0"><span class="badge good">RED-TEAM VERIFIED</span><span class="badge ghost">PRATYAKSA</span><span class="pill">T1071.001</span></div>
+                <div class="f-prov" style="color:var(--faint);font-family:var(--mono);font-size:11.5px">[TE0019-mem_handles] ⇐ "\\Device\\NamedPipe\\msagent_da1f34"</div>
+              </div>
+              <div class="card sev-rail high" style="padding:14px 16px;margin-top:10px">
+                <div class="row" style="justify-content:space-between"><b>Injected / RWX code in explorer.exe</b><span class="badge high">HIGH</span></div>
+                <div class="row wrap" style="gap:6px;margin:9px 0"><span class="badge good">RED-TEAM VERIFIED</span><span class="pill">T1055</span></div>
+                <div class="f-prov" style="color:var(--faint);font-family:var(--mono);font-size:11.5px">[TE0006-mem_malfind] ⇐ "1484"</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="reveal">
+          <div class="kicker">Provenance, not vibes</div>
+          <h3>Every finding traces to the tool call that produced it.</h3>
+          <p>No finding exists without a <code>tool_exec_id</code> and a locator string the verifier re-finds in the captured output. Click any finding and follow it back to the exact command — the audit trail makes the whole investigation reproducible and court-admissible.</p>
+          <ul class="lead-bullets">
+            <li><span class="ck">✓</span> Confirmed vs. inferred, with a NABAOS epistemic tag.</li>
+            <li><span class="ck">✓</span> Deterministic replay re-derives 61/61 findings from the log alone.</li>
+            <li><span class="ck">✓</span> One-click ATT&CK Navigator layer export.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ EVIDENCE TYPES ============ -->
+  <section class="sec">
+    <div class="lp-wrap">
+      <div class="sec-head reveal">
+        <div class="kicker">Drop in any case data</div>
+        <h2>Five evidence types. One autonomous analyst.</h2>
+        <p>Point GLASSBOX at a case directory; it classifies the evidence and goes deep — depth on a few types beats shallow coverage of many.</p>
+      </div>
+      <div class="evt-grid reveal">
+        <div class="evt-card"><div class="ei"><svg viewBox="0 0 24 24" width="22" height="22"><ellipse cx="12" cy="6" rx="8" ry="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></div><h4>Disk</h4><p>Sleuth Kit — partition table, file listing, MFT timeline</p></div>
+        <div class="evt-card"><div class="ei"><svg viewBox="0 0 24 24" width="22" height="22"><rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 10v4M11 10v4M15 10v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div><h4>Memory</h4><p>Volatility 3 — pslist/psscan, malfind, handles, cmdscan</p></div>
+        <div class="evt-card"><div class="ei"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 12h6M9 15h6M9 9h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div><h4>EVTX</h4><p>Hayabusa/Sigma — Kerberoasting, WMI, log clearing</p></div>
+        <div class="evt-card"><div class="ei"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></div><h4>PCAP</h4><p>tshark — connections, DNS, HTTP, C2 IOC extraction</p></div>
+        <div class="evt-card"><div class="ei"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 7l8-4 8 4-8 4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M4 7v6l8 4 8-4V7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></div><h4>Registry</h4><p>RegRipper — Run keys, services, persistence</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <section class="sec band" id="how">
+    <div class="lp-wrap">
+      <div class="sec-head reveal">
+        <div class="kicker">How it works</div>
+        <h2>The model proposes. The graph disposes.</h2>
+        <p>A read-only MCP server under a LangGraph pipeline. The control flow, the verdicts, and the loop bound are all code — not prompts.</p>
+      </div>
+      <div class="pipe reveal" id="pipe"></div>
+    </div>
+  </section>
+
+  <!-- ============ GUARDRAILS ============ -->
+  <section class="sec" id="trust">
+    <div class="lp-wrap">
+      <div class="sec-head reveal">
+        <div class="kicker">Architectural, not prompt-based</div>
+        <h2>Guardrails you can prove, not ones you hope for.</h2>
+        <p>"Please don't modify the evidence" is a wish. GLASSBOX removes the capability — and ships a one-click self-test that proves every boundary holds.</p>
+      </div>
+      <div class="cmp-grid reveal">
+        <div class="cmp bad">
+          <div class="h"><svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> Prompt-based (the baseline)</div>
+          <ul>
+            <li><span class="m">✕</span> "Read-only mode" is a system-prompt instruction the model can be talked around.</li>
+            <li><span class="m">✕</span> A general shell tool with an allow-list — many "allowed" tools can still write.</li>
+            <li><span class="m">✕</span> Findings are whatever the model asserts; no mechanical check.</li>
+            <li><span class="m">✕</span> Retry loops with no hard bound can spiral.</li>
+          </ul>
+        </div>
+        <div class="cmp good">
+          <div class="h"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg> GLASSBOX (architectural)</div>
+          <ul>
+            <li><span class="m">✓</span> No write / shell / delete tool exists in the MCP surface — spoliation is impossible.</li>
+            <li><span class="m">✓</span> Path traversal blocked in code; before/after SHA-256 proves zero modification.</li>
+            <li><span class="m">✓</span> Every finding re-verified against captured output, then red-teamed.</li>
+            <li><span class="m">✓</span> Loop bounded by an in-code max-iterations counter + recursion limit.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="grid cols-3 reveal" style="margin-top:18px">
+        <div class="feat"><div class="fi"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><h3>Hash-chained audit</h3><p>Every tool call, message and verdict linked by SHA-256. Any insertion, deletion or edit breaks the chain and is detected on re-verify.</p></div>
+        <div class="feat"><div class="fi"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 12a9 9 0 109-9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M12 3v5l3 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div><h3>Deterministic replay</h3><p>The complete finding set re-derives from the audit log + captured output alone — a different examiner reaches identical conclusions.</p></div>
+        <div class="feat"><div class="fi"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></div><h3>Guardrail self-test</h3><p>One click actively tests six architectural boundaries for bypass — no-write-tool, path traversal, evidence read-only, audit tamper, hallucination, HMAC.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA ============ -->
+  <section class="sec spotlight cta">
+    <div class="lp-wrap">
+      <div class="reveal">
+        <h2 style="color:#fff">Find evil at machine speed.</h2>
+        <p>Launch the console, watch a live triage run end to end, and trace any finding back to the exact tool execution that produced it.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary btn-lg" href="/app">Launch Dashboard</a>
+          <a class="btn btn-lg" href="/app#/guardrails" style="background:#13151c;color:#eef1f8;border-color:#272b38">Run the guardrail self-test</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="lp-footer">
+    <div class="lp-footer-inner">
+      <a class="lp-brand" href="/" style="font-size:13px"><span class="mk" style="width:28px;height:28px"><svg viewBox="0 0 24 24" width="16" height="16"><rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 12.5l2.6 2.6L16 9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span> GLASSBOX</a>
+      <span class="muted">Read-only, self-correcting autonomous DFIR triage · Apache-2.0</span>
+      <span class="spr"></span>
+      <a href="/app">Dashboard</a>
+      <a href="#run">Run it</a>
+      <a href="#trust">Guardrails</a>
+    </div>
+  </footer>
+
+  <script src="/static/js/landing.js"></script>
+</body>
+</html>

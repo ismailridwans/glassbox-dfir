@@ -26,13 +26,33 @@
       findings.forEach((f) => { sevCounts[(f.severity || "INFO").toUpperCase()] = (sevCounts[(f.severity||"INFO").toUpperCase()]||0) + 1; });
       const spoliation = (r.integrity || []).some((i) => i.unchanged === false);
 
-      /* ---- top stat tiles ---- */
+      /* ---- top metric cards (fintech-style with sparkbars) ---- */
+      const confN = findings.filter(f=>f.confidence==='CONFIRMED').length;
+      const infN = findings.filter(f=>f.confidence==='INFERRED').length;
+      const cssv = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+      const metric = (icon, name, sub, value, filled, color, foot) => el("div", { class: "card metric lift" }, [
+        el("div", { class: "metric-top" }, [
+          el("div", { class: "metric-ic", html: icon, style: color ? { background: "color-mix(in srgb,"+color+" 16%,transparent)", color } : null }),
+          el("div", {}, [ el("div", { class: "metric-name", text: name }), el("div", { class: "metric-sub", text: sub }) ]),
+        ]),
+        el("div", { class: "metric-value", text: value, style: color ? { color } : null }),
+        el("div", { class: "metric-spark" }, ui.sparkbars(28, filled, color || cssv("--brand"))),
+        foot ? el("div", { class: "metric-sub", style: { marginTop: "8px" }, html: foot }) : null,
+      ]);
+      const total = findings.length || 1;
       root.appendChild(el("div", { class: "grid cols-4", style: { marginBottom: "16px" } }, [
-        stat("Findings", findings.length, { tone: "accent",
-          foot: `${(r.confirmed_count!=null?r.confirmed_count:findings.filter(f=>f.confidence==='CONFIRMED').length)} confirmed · ${findings.filter(f=>f.confidence==='INFERRED').length} inferred` }),
-        stat("Red-Team Verified", rtv, { tone: "good", foot: "survived adversarial panel" }),
-        stat("Quarantined", (r.quarantined||[]).length, { tone: (r.quarantined||[]).length?"warn":"", foot: "hallucinated / unsupported" }),
-        stat("ATT&CK Techniques", (r.attack_coverage||[]).length, { foot: `${(r.discrepancies||[]).length} cross-source discrepancies` }),
+        metric("<svg viewBox='0 0 24 24' width='18' height='18'><path d='M4 6h16M4 12h10M4 18h7' stroke='currentColor' stroke-width='1.8' stroke-linecap='round'/></svg>",
+          "Findings", "grounded + verified", String(findings.length), 28, cssv("--brand"),
+          `${confN} confirmed · ${infN} inferred`),
+        metric("<svg viewBox='0 0 24 24' width='18' height='18'><path d='M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z' fill='none' stroke='currentColor' stroke-width='1.7' stroke-linejoin='round'/><path d='M9 12l2 2 4-4' stroke='currentColor' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/></svg>",
+          "Red-Team Verified", "survived adversarial panel", String(rtv), Math.round(28*rtv/total), cssv("--up"),
+          `${Math.round(100*rtv/total)}% of findings upheld`),
+        metric("<svg viewBox='0 0 24 24' width='18' height='18'><path d='M12 3l9 16H3z' fill='none' stroke='currentColor' stroke-width='1.7' stroke-linejoin='round'/><path d='M12 9v4M12 16.5v.5' stroke='currentColor' stroke-width='1.8' stroke-linecap='round'/></svg>",
+          "Quarantined", "hallucinated / unsupported", String((r.quarantined||[]).length), Math.max(1,(r.quarantined||[]).length), cssv("--med"),
+          `${(r.refuted||[]).length} also refuted by red-team`),
+        metric("<svg viewBox='0 0 24 24' width='18' height='18'><rect x='3' y='3' width='7' height='7' rx='1.5' fill='none' stroke='currentColor' stroke-width='1.7'/><rect x='14' y='3' width='7' height='7' rx='1.5' fill='none' stroke='currentColor' stroke-width='1.7'/><rect x='3' y='14' width='7' height='7' rx='1.5' fill='none' stroke='currentColor' stroke-width='1.7'/><rect x='14' y='14' width='7' height='7' rx='1.5' fill='none' stroke='currentColor' stroke-width='1.7'/></svg>",
+          "ATT&CK", "kill-chain coverage", String((r.attack_coverage||[]).length), Math.min(28,(r.attack_coverage||[]).length), cssv("--low"),
+          `${(r.discrepancies||[]).length} cross-source discrepancies`),
       ]));
 
       /* ---- integrity + speed banner ---- */

@@ -95,6 +95,24 @@ class TestHTTP:
         assert st == 200 and "text/html" in ct
         assert b"GLASSBOX" in body
 
+    def test_root_serves_landing(self, server):
+        _, _, body = _get(server + "/")
+        # landing page hero markers (not the SPA shell)
+        assert b'class="hero"' in body
+        assert b"Launch Dashboard" in body
+
+    def test_app_serves_spa(self, server):
+        st, ct, body = _get(server + "/app")
+        assert st == 200 and "text/html" in ct
+        assert b'id="app"' in body
+        assert b"views/dashboard.js" in body
+
+    def test_landing_assets_present(self, server):
+        st, ct, _ = _get(server + "/static/css/landing.css")
+        assert st == 200 and "text/css" in ct
+        st2, ct2, _ = _get(server + "/static/js/landing.js")
+        assert st2 == 200 and "javascript" in ct2
+
     def test_css_content_type(self, server):
         st, ct, _ = _get(server + "/static/css/app.css")
         assert st == 200 and "text/css" in ct
