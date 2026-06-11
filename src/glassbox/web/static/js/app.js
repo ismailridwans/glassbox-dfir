@@ -24,7 +24,13 @@
       else if (k === "html") n.innerHTML = v;
       else if (k === "text") n.textContent = v;
       else if (k.startsWith("on") && typeof v === "function") n.addEventListener(k.slice(2), v);
-      else if (k === "style" && typeof v === "object") Object.assign(n.style, v);
+      else if (k === "style" && typeof v === "object") {
+        for (const [sk, sv] of Object.entries(v)) {
+          if (sv == null) continue;
+          if (sk.charCodeAt(0) === 45 && sk.charCodeAt(1) === 45) n.style.setProperty(sk, sv); // --custom-prop
+          else n.style[sk] = sv;
+        }
+      }
       else n.setAttribute(k, v);
     }
     if (children != null) (Array.isArray(children) ? children : [children]).forEach((c) => {
@@ -113,8 +119,8 @@
     if (opts.center != null) {
       const t = document.createElementNS(svg.namespaceURI, "text");
       t.setAttribute("x", cx); t.setAttribute("y", cy); t.setAttribute("text-anchor", "middle");
-      t.setAttribute("dominant-baseline", "central"); t.setAttribute("fill", "#e6edf6");
-      t.setAttribute("font-size", "26"); t.setAttribute("font-weight", "800"); t.setAttribute("font-family", "var(--mono)");
+      t.setAttribute("dominant-baseline", "central"); t.setAttribute("fill", "var(--text)");
+      t.setAttribute("font-size", "26"); t.setAttribute("font-weight", "800"); t.setAttribute("font-family", "var(--sans)");
       t.textContent = opts.center; svg.appendChild(t);
     }
     return svg;
@@ -318,9 +324,6 @@
   async function loadData() {
     try { ctx.state = await G.api.state(); } catch { ctx.state = {}; }
     try { ctx.report = (await G.api.report()) || {}; } catch { ctx.report = {}; }
-    document.getElementById("foot-case").textContent = ctx.state.case_id || "—";
-    document.getElementById("foot-tools").textContent = (ctx.state.tools || []).length || "—";
-    document.getElementById("foot-version").textContent = "v" + (ctx.state.version || "0.1.0");
   }
 
   function buildNav() {
@@ -329,9 +332,9 @@
     Object.values(views).sort((a, b) => (a.order || 99) - (b.order || 99)).forEach((v) => {
       let count;
       try { count = v.badge ? v.badge(ctx) : null; } catch { count = null; }
-      const item = el("button", { class: "nav-item" + (v.id === currentId() ? " active" : ""), onclick: () => ctx.go(v.id) }, [
+      const item = el("button", { class: "nav-item" + (v.id === currentId() ? " active" : ""), title: v.title, onclick: () => ctx.go(v.id) }, [
         el("span", { class: "nav-ic", html: v.icon || "" }),
-        el("span", { text: v.title }),
+        el("span", { class: "nav-label", text: v.title }),
         (count != null && count !== "") ? el("span", { class: "nav-badge", text: String(count) }) : null,
       ]);
       nav.appendChild(item);

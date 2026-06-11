@@ -162,8 +162,10 @@ class TestHTTP:
         csp = h.get("Content-Security-Policy", "")
         # strict CSP: scripts only from our own origin, NOT inline
         assert "script-src 'self'" in csp
-        assert "script-src 'self' 'unsafe-inline'" not in csp
+        assert "script-src 'self' 'unsafe-inline'" not in csp  # scripts never inline
         assert "object-src 'none'" in csp
+        # fonts may load from Google Fonts but scripts must not
+        assert "fonts.gstatic.com" in csp.split("font-src")[1].split(";")[0]
         assert "base-uri 'none'" in csp
         assert "frame-ancestors 'none'" in csp
         assert h.get("X-Content-Type-Options") == "nosniff"
