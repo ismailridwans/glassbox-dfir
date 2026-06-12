@@ -1,15 +1,19 @@
-/* Timeline — incident narrative + unified cross-source timeline.
+/* Timeline v2 — phased incident narrative (collapsible) + connected cross-source event rail.
  * Contract: GLASSBOX.registerView(id, { title, sub, order, icon, badge?, render }).
- * render(root, ctx): build DOM into `root`. ctx = { state, report, api, ui, go, refresh }.
- *
- * Renders ctx.report.narrative (markdown-ish) as a readable narrative card, then
- * ctx.report.timeline (already sorted) as a vertical timeline with a tactic/source filter.
+ * Consumes ctx.report.narrative (markdown-ish phased string) and ctx.report.timeline[]
+ * (events: { ts, source, category, title, severity, confidence, tool_exec_id, technique_ids[], detail }).
  */
 (function () {
   const ICON = "<svg viewBox='0 0 24 24'><circle cx='12' cy='12' r='9' fill='none' stroke='currentColor' stroke-width='1.6'/><path d='M12 7v5l3.5 2' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>";
 
-  /* dot color per source — keeps the rail readable across evidence types */
-  const SRC_KIND = { evtx: "high", registry: "med", memory: "good", pcap: "low", disk: "info" };
+  const SRC = {
+    evtx:     { kind: "high", label: "EVTX" },
+    registry: { kind: "med",  label: "REGISTRY" },
+    memory:   { kind: "good", label: "MEMORY" },
+    pcap:     { kind: "low",  label: "PCAP" },
+    disk:     { kind: "info", label: "DISK" },
+  };
+  const KIND_VAR = { high: "--high", med: "--med", good: "--up", low: "--low", info: "--info" };
 
   GLASSBOX.registerView("timeline", {
     title: "Timeline",
@@ -19,147 +23,209 @@
     badge: (ctx) => (ctx.report.timeline || []).length || null,
     render(root, ctx) {
       const { ui, report: r } = ctx;
-      const { el, card, badge, sevBadge, pill, esc } = ui;
+      const { el, card, badge, sevBadge, pill, cssVar } = ui;
+      const srcColor = (s) => cssVar(KIND_VAR[(SRC[s] && SRC[s].kind) || "info"]);
 
-      if (!r || (!r.narrative && !r.timeline)) {
-        root.appendChild(ui.empty("Run triage first"));
-        return;
-      }
+      if (!r || (!r.narrative && !r.timeline)) { root.appendChild(ui.empty("Run triage first")); return; }
 
-      /* ---------- Incident Narrative ---------- */
+      /* ---------- 1. Incident Narrative (phased, collapsible) ---------- */
       if (r.narrative) {
-        root.appendChild(card("Incident Narrative", narrativeDom(el, r.narrative),
-          { sub: "reconstructed attack chain", class: "", bodyClass: "narrative" }));
+        const n = parseNarrative(r.narrative);
+        const phasesWrap = el("div", { class: "rise" });
+        n.phases.forEach((p, i) => phasesWrap.appendChild(phaseCard(el, badge, pill, p, i)));
+        const lead = n.lead ? el("div", { class: "muted", style: { fontSize: "13px", margin: "0 0 14px", lineHeight: "1.6" }, text: n.lead }) : null;
+        const summ = n.summary ? el("div", { class: "row wrap", style: { gap: "8px", marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)", fontSize: "12.5px", color: "var(--muted)" } }, inlineNodes(el, n.summary)) : null;
+        root.appendChild(card("Incident Narrative",
+          el("div", {}, [lead, phasesWrap, summ].filter(Boolean)),
+          { sub: "reconstructed attack chain", action: badge(`${n.phases.length} phases`, "ghost") }));
       }
 
-      /* ---------- Unified Timeline ---------- */
-      const events = Array.isArray(r.timeline) ? r.timeline : [];
+      /* ---------- 2. Unified cross-source event rail ---------- */
+      const events = Array.isArray(r.timeline) ? r.timeline.slice() : [];
       if (!events.length) {
         root.appendChild(el("div", { style: { marginTop: "16px" } },
           card("Unified Timeline", ui.empty("No timeline entries"), { sub: "0 events" })));
         return;
       }
 
-      /* filter options: combine category + source into one select */
-      const cats = Array.from(new Set(events.map((e) => e.category).filter(Boolean))).sort();
-      const srcs = Array.from(new Set(events.map((e) => e.source).filter(Boolean))).sort();
-      const sel = el("select", { class: "input", style: { minWidth: "210px" } }, [
-        el("option", { value: "*", text: `All events (${events.length})` }),
-        srcs.length ? el("optgroup", { label: "Source" },
-          srcs.map((s) => el("option", { value: "src:" + s, text: s }))) : null,
-        cats.length ? el("optgroup", { label: "Category" },
-          cats.map((c) => el("option", { value: "cat:" + c, text: c.replace(/_/g, " ") }))) : null,
+      const presentSrcs = Array.from(new Set(events.map((e) => e.source).filter(Boolean)));
+      const active = new Set(presentSrcs);      // all on by default
+      let query = "";
+
+      // sticky filter bar: source chips + search
+      const chips = presentSrcs.map((s) => {
+        const c = el("button", { class: "src-chip on", "data-src": s }, [
+          el("span", { class: "sd", style: { background: srcColor(s) } }),
+          (SRC[s] && SRC[s].label) || s.toUpperCase(),
+        ]);
+        c.addEventListener("click", () => {
+          if (active.has(s)) { active.delete(s); c.classList.remove("on"); c.classList.add("off"); }
+          else { active.add(s); c.classList.add("on"); c.classList.remove("off"); }
+          draw();
+        });
+        return c;
+      });
+      const search = el("input", { class: "input", placeholder: "Search events, techniques, tools…", style: { minWidth: "230px", flex: "1" },
+        oninput: (e) => { query = e.target.value.toLowerCase().trim(); draw(); } });
+      const countLabel = el("span", { class: "faint", style: { fontSize: "12px", whiteSpace: "nowrap" } });
+      const bar = el("div", { class: "sticky-bar" }, [
+        el("span", { class: "muted", style: { fontSize: "12px", fontWeight: "600" }, text: "Sources" }),
+        ...chips,
+        el("span", { class: "spacer", style: { flex: ".4" } }),
+        search, countLabel,
       ]);
 
-      const list = el("div", { class: "trace", style: { marginTop: "4px" } });
-      const countLabel = el("span", { class: "sub" });
-
+      const railHost = el("div", { class: "tl" });
       const draw = () => {
-        const v = sel.value || "*";
         const shown = events.filter((e) => {
-          if (v === "*") return true;
-          if (v.startsWith("src:")) return e.source === v.slice(4);
-          if (v.startsWith("cat:")) return e.category === v.slice(4);
-          return true;
+          if (e.source && !active.has(e.source)) return false;
+          if (!query) return true;
+          const hay = `${e.title} ${e.detail || ""} ${(e.technique_ids || []).join(" ")} ${e.tool_exec_id || ""} ${e.category || ""}`.toLowerCase();
+          return hay.includes(query);
         });
-        list.innerHTML = "";
-        if (!shown.length) { list.appendChild(ui.empty("No events match this filter")); }
-        else shown.forEach((e) => list.appendChild(eventRow(el, badge, sevBadge, pill, e)));
         countLabel.textContent = `${shown.length} of ${events.length} events`;
+        railHost.innerHTML = "";
+        if (!shown.length) { railHost.appendChild(ui.empty("No events match these filters")); return; }
+        let lastHour = null;
+        shown.forEach((e, idx) => {
+          const hour = hourOf(e.ts);
+          if (hour !== lastHour) {
+            railHost.appendChild(el("div", { class: "tl-hour" }, [
+              el("span", { class: "hh", text: hour }), el("span", { class: "hl" }),
+            ]));
+            lastHour = hour;
+          }
+          railHost.appendChild(eventItem(el, badge, sevBadge, pill, e, srcColor, idx === shown.length - 1));
+        });
       };
-      sel.addEventListener("change", draw);
       draw();
 
-      const toolbar = el("div", { class: "row wrap", style: { gap: "10px", marginBottom: "12px" } }, [
-        el("span", { class: "muted", style: { fontSize: "12.5px" }, text: "Filter" }),
-        sel, el("span", { class: "spacer", style: { flex: "1" } }), countLabel,
-      ]);
-
       root.appendChild(el("div", { style: { marginTop: "16px" } },
-        card("Unified Timeline", el("div", {}, [toolbar, list]),
-          { sub: `${events.length} events · ${srcs.length} source(s)` })));
+        card("Unified Timeline", el("div", {}, [bar, railHost]),
+          { sub: `${events.length} events · ${presentSrcs.length} source(s)` })));
     },
   });
 
-  /* ---- one timeline entry, styled as a .trace-row vertical-line row ---- */
-  function eventRow(el, badge, sevBadge, pill, e) {
-    const kind = SRC_KIND[e.source] || "info";
-    const ts = e.ts && e.ts !== "unknown" ? String(e.ts).replace("T", " ") : "—";
+  /* ---------- event rail item ---------- */
+  function eventItem(el, badge, sevBadge, pill, e, srcColor, isLast) {
+    const src = e.source || "?";
+    const meta = SRC[src] || { kind: "info", label: src.toUpperCase() };
     const techs = (e.technique_ids || []).filter(Boolean);
-
-    return el("div", { class: "trace-row" }, [
-      el("div", { class: "t-time", text: ts }),
-      el("div", { class: "t-ic", html: dotSvg() }),
-      el("div", {}, [
-        /* header line: source badge · category · title · severity */
-        el("div", { class: "row wrap", style: { gap: "8px" } }, [
-          badge((e.source || "?").toUpperCase(), kind),
-          e.category ? el("span", { class: "faint", style: { fontSize: "11.5px" },
-            text: e.category.replace(/_/g, " ") }) : null,
-          el("span", { class: "t-label", style: { fontSize: "13.5px" }, text: e.title || "(untitled)" }),
-          el("span", { class: "spacer", style: { flex: "1" } }),
-          sevBadge(e.severity),
-        ]),
-        /* detail */
-        e.detail ? el("div", { class: "t-detail", style: { marginTop: "5px", lineHeight: "1.5" }, text: e.detail }) : null,
-        /* technique pills + tool_exec_id citation */
-        (techs.length || e.tool_exec_id) ? el("div", { class: "row wrap", style: { gap: "6px", marginTop: "7px", alignItems: "center" } }, [
-          ...techs.map((t) => pill(t)),
-          e.tool_exec_id ? el("span", { class: "mono faint", style: { fontSize: "11px", marginLeft: techs.length ? "4px" : "0" },
-            text: "↳ " + e.tool_exec_id }) : null,
-        ]) : null,
-      ]),
+    const time = timeOf(e.ts);
+    const item = el("div", { class: "tl-item" + (isLast ? " is-last" : "") }, [
+      el("div", { class: "tl-time", text: time }),
+      el("div", { class: "tl-rail" }, el("div", { class: "tl-node", style: { "--node": srcColor(src) } })),
+      el("div", { class: "tl-content" },
+        el("div", { class: "tl-card" }, [
+          el("div", { class: "row wrap", style: { gap: "8px", alignItems: "center" } }, [
+            badge(meta.label, meta.kind),
+            e.category ? el("span", { class: "faint", style: { fontSize: "11px" }, text: e.category.replace(/_/g, " ") }) : null,
+            el("span", { class: "tl-title", text: e.title || "(untitled)" }),
+            el("span", { class: "spacer", style: { flex: "1" } }),
+            sevBadge(e.severity),
+          ]),
+          e.detail ? el("div", { class: "tl-detail", text: e.detail }) : null,
+          (techs.length || e.tool_exec_id) ? el("div", { class: "tl-foot" }, [
+            ...techs.map((t) => pill(t)),
+            e.tool_exec_id ? el("span", { class: "tl-tool", text: "↳ " + e.tool_exec_id }) : null,
+          ]) : null,
+        ])),
     ]);
+    return item;
   }
 
-  function dotSvg() {
-    return "<svg viewBox='0 0 24 24' width='10' height='10'><circle cx='12' cy='12' r='6' fill='currentColor'/></svg>";
+  function hourOf(ts) {
+    if (!ts || ts === "unknown") return "Unknown time";
+    const t = String(ts).split("T")[1] || "";
+    const hh = t.slice(0, 2);
+    return hh ? hh + ":00" : "Unknown time";
+  }
+  function timeOf(ts) {
+    if (!ts || ts === "unknown") return "—";
+    const t = String(ts).split("T")[1] || String(ts);
+    return t.slice(0, 8) || "—";
   }
 
-  /* ---- minimal markdown-ish → DOM for the narrative string ----
-   * handles: '## header', '**bold**', '`code`', '- '/'[+]'/'[~]' bullets,
-   * '---' rules, blank lines, and preserves other lines verbatim.
-   */
-  function narrativeDom(el, text) {
-    const wrap = el("div", { class: "narrative-body", style: { fontSize: "13px", lineHeight: "1.6" } });
+  /* ---------- narrative parsing → phases ---------- */
+  function parseNarrative(text) {
+    const out = { caseTitle: "", lead: "", phases: [], summary: "" };
+    let cur = null;
     String(text).split("\n").forEach((raw) => {
       const line = raw.replace(/\s+$/, "");
-      if (line.trim() === "") { wrap.appendChild(el("div", { style: { height: "8px" } })); return; }
-      if (/^---+$/.test(line.trim())) { wrap.appendChild(el("hr", { class: "hr" })); return; }
-
-      const h = line.match(/^(#{1,4})\s+(.*)$/);
-      if (h) {
-        wrap.appendChild(el("div", { style: { fontWeight: "800", fontSize: "13.5px", color: "var(--accent-2)",
-          margin: "10px 0 4px", letterSpacing: ".01em" } }, inline(el, h[2])));
-        return;
+      if (!line.trim()) return;
+      let m;
+      if ((m = line.match(/^##\s+(.*)$/))) { out.caseTitle = m[1]; return; }
+      if (/^\*\*Summary:\*\*/.test(line)) { out.summary = line.replace(/^\*\*Summary:\*\*\s*/, "**Summary:** "); return; }
+      if ((m = line.match(/^\*\*(Phase\s+\d+:[^*]+)\*\*\s*(?:\(([^)]+)\))?/))) {
+        cur = { title: m[1].trim(), time: (m[2] || "").trim(), events: [], more: 0 };
+        out.phases.push(cur); return;
       }
-
-      const bullet = line.match(/^(\s*)(?:-|\[\+\]|\[~\])\s+(.*)$/);
-      if (bullet) {
-        const isContext = /^\s*\[~\]/.test(line);
-        wrap.appendChild(el("div", { class: "row", style: { gap: "8px", alignItems: "baseline",
-          paddingLeft: bullet[1].length > 2 ? "14px" : "2px" } }, [
-          el("span", { class: "mono", style: { color: isContext ? "var(--faint)" : "var(--good)", flex: "0 0 auto" },
-            text: isContext ? "~" : "+" }),
-          el("span", {}, inline(el, bullet[2])),
-        ]));
-        return;
+      if ((m = line.match(/^\s*\[([+~])\]\s+(.*)$/))) {
+        if (!cur) { cur = { title: "Phase: Observations", time: "", events: [], more: 0 }; out.phases.push(cur); }
+        cur.events.push(parseBullet(m[1], m[2])); return;
       }
-
-      wrap.appendChild(el("div", {}, inline(el, line)));
+      if ((m = line.match(/^\s*\.\.\.\s+and\s+(\d+)\s+more/))) { if (cur) cur.more = parseInt(m[1], 10); return; }
+      if (!cur && /reconstructed|attack chain/i.test(line)) { out.lead = line; return; }
     });
-    return wrap;
+    return out;
+  }
+  function parseBullet(kind, text) {
+    let tool = null, t = text;
+    const tm = t.match(/`\[([^\]]+)\]`\s*/);
+    if (tm) { tool = tm[1]; t = t.replace(tm[0], ""); }
+    const techs = [];
+    const techMatch = t.match(/\[((?:T\d{4}(?:\.\d{3})?(?:,\s*)?)+)\]\s*$/);
+    if (techMatch) { techMatch[1].split(/,\s*/).forEach((x) => techs.push(x.trim())); t = t.replace(techMatch[0], "").trim(); }
+    return { kind, tool, techs, text: t.replace(/\s+$/, "") };
   }
 
-  /* inline: **bold** and `code` → DOM nodes; everything else as text */
-  function inline(el, s) {
+  /* ---------- phase card (collapsible) ---------- */
+  function phaseCard(el, badge, pill, p, i) {
+    const num = (p.title.match(/Phase\s+(\d+)/) || [])[1] || (i + 1);
+    const name = p.title.replace(/^Phase\s+\d+:\s*/, "");
+    const body = el("div", { class: "phase-body" });
+    p.events.forEach((ev) => {
+      const dotColor = ev.kind === "+" ? "var(--up)" : "var(--faint)";
+      body.appendChild(el("div", { class: "pevent" + (ev.kind === "~" ? " context" : "") }, [
+        el("span", { class: "pe-dot", style: { background: dotColor } }),
+        el("span", { class: "pe-text" }, [
+          ...inlineNodes(el, ev.text),
+          ev.tool ? el("span", { class: "mono", style: { fontSize: "10.5px", color: "var(--faint)", marginLeft: "6px" }, text: "↳ " + ev.tool }) : null,
+        ].filter(Boolean)),
+        ev.techs.length ? el("span", { class: "row wrap", style: { gap: "4px", justifyContent: "flex-end" } }, ev.techs.map((t) => el("span", { class: "pe-tid", text: t }))) : el("span"),
+      ]));
+    });
+    if (p.more) body.appendChild(el("div", { class: "pevent context" }, [
+      el("span"), el("span", { class: "pe-text faint", style: { fontSize: "11.5px" }, text: `… and ${p.more} more observation(s)` }), el("span"),
+    ]));
+
+    const phase = el("div", { class: "phase" + (i > 1 ? " collapsed" : "") }, [
+      el("div", { class: "phase-head" }, [
+        el("div", { class: "pidx", text: String(num) }),
+        el("div", { class: "pt" }, [
+          el("div", { class: "ptitle", text: name }),
+          p.time ? el("div", { class: "ptime", text: p.time.replace(/T/g, " ") }) : null,
+        ]),
+        el("div", { class: "pright" }, [
+          badge(`${p.events.length + (p.more || 0)} event${p.events.length + (p.more || 0) === 1 ? "" : "s"}`, "ghost"),
+          el("span", { class: "chev", html: "<svg viewBox='0 0 24 24' width='16' height='16'><path d='M6 9l6 6 6-6' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>" }),
+        ]),
+      ]),
+      body,
+    ]);
+    phase.querySelector(".phase-head").addEventListener("click", () => phase.classList.toggle("collapsed"));
+    return phase;
+  }
+
+  /* inline: **bold** and `code` → DOM nodes */
+  function inlineNodes(el, s) {
     const nodes = [];
     const re = /\*\*([^*]+)\*\*|`([^`]+)`/g;
     let last = 0, m;
     while ((m = re.exec(s)) !== null) {
       if (m.index > last) nodes.push(document.createTextNode(s.slice(last, m.index)));
       if (m[1] != null) nodes.push(el("b", { text: m[1] }));
-      else nodes.push(el("span", { class: "mono", style: { color: "var(--accent)", fontSize: "11.5px" }, text: m[2] }));
+      else nodes.push(el("span", { class: "mono", style: { color: "var(--brand-2)", fontSize: "11px" }, text: m[2] }));
       last = re.lastIndex;
     }
     if (last < s.length) nodes.push(document.createTextNode(s.slice(last)));

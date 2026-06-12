@@ -76,6 +76,25 @@
     return null;
   }
 
+  /* node colour per event-type — turns the flat log into a scannable, colour-coded chain */
+  const NODE_VAR = {
+    case_open: "--brand", plan: "--brand", critique: "--brand",
+    integrity_baseline: "--up", integrity_verify: "--up",
+    tool_execution: "--accent", specialist_result: "--low", detection_modules: "--low", attack_mapping: "--low",
+    correlation: "--high", discrepancy_verification: "--high",
+    verification: "--med", adversarial_review: "--med", investigation_depth: "--med",
+    approval_gate: "--brand-2", lessons_learned: "--brand-2", report: "--brand-strong",
+  };
+  const nodeColor = (type) => `var(${NODE_VAR[type] || "--faint"})`;
+  const isIntegrity = (type) => type === "integrity_baseline" || type === "integrity_verify";
+  /* surface the provenance reference so any record traces back to a tool execution / finding */
+  function traceRef(ev) {
+    if (ev.tool_exec_id) return ev.tool_exec_id;
+    if (ev.finding_id) return "→ " + ev.finding_id;
+    if (ev.discrepancy_id) return "→ " + ev.discrepancy_id;
+    return "";
+  }
+
   GLASSBOX.registerView("audit", {
     title: "Audit Trail", sub: "tamper-evident chain of custody", order: 80, icon: ICON,
     async render(root, ctx) {
@@ -186,22 +205,31 @@
         const shown = recs.slice(0, CAP);
         countNote.textContent = `showing ${shown.length} of ${total}`;
 
-        const chain = el("div", { class: "chain" });
+        const chain = el("div", { class: "aud-chain" });
         shown.forEach((r, i) => {
           const ev = r.event || {};
+          const type = ev.type || "?";
           const hash = String(r.record_hash || "");
-          const rec = el("div", { class: "chain-rec", title: `seq ${r.seq} · ${r.ts || ""}\nrecord_hash ${hash}\nprev_hash ${r.prev_hash || ""}` }, [
+          const ref = traceRef(ev);
+          const broken = type === "report" && ev.audit_chain_valid === false;
+          const rec = el("div", {
+            class: "aud-rec" + (isIntegrity(type) ? " is-integrity" : "") + (broken ? " is-bad" : ""),
+            title: `seq ${r.seq} · ${r.ts || ""}\nrecord_hash ${hash}\nprev_hash ${r.prev_hash || ""}`,
+          }, [
             el("span", { class: "seq", text: "#" + (r.seq != null ? r.seq : "?") }),
-            el("span", { class: "etype", text: ev.type || "?" }),
-            el("div", { class: "row", style: { gap: "8px", alignItems: "center", minWidth: "0" } }, [
-              el("span", { class: "muted", style: { fontSize: "12px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, text: summarize(ev) }),
+            el("span", { class: "aud-dot", style: { "--node": nodeColor(type) } }),
+            el("div", { class: "body" }, [
+              el("span", { class: "etype", text: type }),
+              el("span", { class: "summ", text: summarize(ev) }),
               verdictBadge(ui, ev),
-            ]),
-            el("span", { class: "hash", title: hash, text: hash ? hash.slice(0, 12) : "—" }),
+            ].filter(Boolean)),
+            el("div", { class: "right" }, [
+              ref ? el("span", { class: "tool", text: ref }) : null,
+              el("span", { class: "hash", title: hash, text: hash ? hash.slice(0, 12) : "—" }),
+            ].filter(Boolean)),
           ]);
           chain.appendChild(rec);
-          // tiny visual link between consecutive records
-          if (i < shown.length - 1) chain.appendChild(el("div", { class: "chain-link" }));
+          if (i < shown.length - 1) chain.appendChild(el("div", { class: "aud-link" }));
         });
 
         chainHost.innerHTML = "";

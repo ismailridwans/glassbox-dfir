@@ -4,8 +4,8 @@
  * render(root, ctx): build DOM into `root`. ctx = { state, report, api, ui, go, refresh }.
  */
 (function () {
-  // Shield-with-check: integrity / chain-of-custody motif.
-  const ICON = "<svg viewBox='0 0 24 24'><path d='M12 3l7 3v5c0 4.6-3 8.3-7 9.5C8 19.3 5 15.6 5 11V6l7-3z' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linejoin='round'/><path d='M9 12l2 2 4-4.5' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>";
+  // fingerprint — distinct from the guardrails shield; evokes forensic identity / reproducibility.
+  const ICON = "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round'><path d='M5 11.5a7 7 0 0 1 14 0'/><path d='M8 12a4 4 0 0 1 8 0v1.5'/><path d='M12 12.5v3.5a9 9 0 0 0 .8 3.6'/><path d='M8.5 15a9 9 0 0 0 1.3 4'/><path d='M15.7 14.4a13 13 0 0 0 .8 4.8'/></svg>";
 
   const basename = (p) => String(p || "").split(/[\\/]/).pop() || String(p || "");
   const trunc = (h, head = 10, tail = 6) => {
